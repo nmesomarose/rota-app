@@ -1,0 +1,52 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+*.pem
+*.dump
+*.sql.dump
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production & Build outputs
+dist/
+build/
+.expo/
+.next/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+
+# Mobile & Native Build Artifacts
+.expo-shared/
+web-build/
+*.keystore
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Cache
+.eslintcache
+.turbo/
