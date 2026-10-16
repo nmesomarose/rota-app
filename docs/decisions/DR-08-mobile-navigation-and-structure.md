@@ -1,7 +1,7 @@
 # DR-08: Mobile Application Framework, Navigation, and Build Strategy
 
 ## Status
-`PROPOSED` (Awaiting Product Owner Approval)
+`ACCEPTED (Engineering Decision)` — Expo Managed Workflow targeting React Native 0.88 with React Navigation native stack and bottom tabs adopted. Verified bundling cleanly with Metro and passing TypeScript checks.
 
 ## Context
 The Rota mobile client is a cross-platform React Native app built using the **Expo** ecosystem (`PRD 12.6`).

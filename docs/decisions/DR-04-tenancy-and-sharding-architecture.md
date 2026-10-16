@@ -1,7 +1,7 @@
 # DR-04: Multi-Tenancy Architecture, Two-Shard Simulation, and RLS Enforcement
 
 ## Status
-`PROPOSED` (Awaiting Product Owner Approval)
+`ACCEPTED (Engineering Decision) / VERIFIED IN CODE & TESTS` — Implemented via two logical shards (`rota_shard_1`, `rota_shard_2`), control plane (`rota_control`), deterministic SHA-256 routing, forced RLS on all tenant tables, composite FKs, and transaction-scoped context helper. Verified by 33 automated tests.
 
 ## Context
 Rota is a multi-tenant platform with multi-business identity (`D-01`). A single user identity may hold memberships in several businesses. Furthermore:

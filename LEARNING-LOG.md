@@ -102,4 +102,54 @@ This living document captures technical discoveries, architectural trade-offs, a
 - **Architectural Solution**:
   Pinned `react: "^19.3.0"` and `@types/react: "^19.1.1"` in `mobile/package.json`. Scaffolded the proposed React Navigation architecture with `RootNavigator` (switching between `AuthStack` and `MainTabs`: Schedule, Feed, Team, Settings). This guarantees clean isolation between unauthenticated screens and multi-tenant authenticated operations.
 
+---
 
+## Log Entry 11: node-pg-migrate Execution Semantics and Raw SQL Up/Down Boundary Handling
+- **Date**: 2026-10-16
+- **Context**: Milestone M1 / Step 3 Migration Execution
+- **Discovery**:
+  When using `node-pg-migrate`, placing raw SQL scripts containing both `-- Up` and `-- Down` markers into a single file results in `node-pg-migrate` treating the entire file as the UP migration script. Consequently, PostgreSQL executes the `CREATE TABLE` and then immediately executes the `DROP TABLE` statements within the same migration transaction.
+- **Architectural Solution**:
+  Standardized on ES module `.js` migrations (`export async function up(pgm)` and `export async function down(pgm)`). Inside `up(pgm)`, `pgm.sql(...)` executes the forward DDL, RLS policies, and privilege grants. `down(pgm)` cleanly houses drop actions. This provides unambiguous execution semantics and 100% predictable migrations.
+
+---
+
+## Log Entry 12: PostgreSQL Superuser vs RLS Bypass Invariants and Forced RLS on Table Owners
+- **Date**: 2026-10-16
+- **Context**: Milestone M1 / Tenancy & Security Proof (`SEC-011`, `C-03`)
+- **Discovery**:
+  In PostgreSQL, `ALTER TABLE ... FORCE ROW LEVEL SECURITY` causes RLS policies to apply to table owners. However, PostgreSQL documentation and engine internals dictate that superuser roles (`rolsuper = true`) bypass RLS regardless of `FORCE ROW LEVEL SECURITY`. Therefore, relying on `postgres` as the application connection role completely invalidates RLS tenant isolation.
+- **Architectural Solution**:
+  Enforced a two-role model:
+  1. Administrative role (`postgres`): Runs schema migrations and structural changes.
+  2. Application role (`rota_app`): Configured strictly with `NOSUPERUSER` and `NOBYPASSRLS`. All backend queries execute through connection pools authenticated as `rota_app`.
+  Automated tests in `tests/tenancy/isolation.test.ts` query `pg_roles` and execute queries as `rota_app` to verify RLS is actively enforced and cannot be bypassed.
+
+---
+
+## Log Entry 13: Transaction-Local Configuration (set_config(..., true)) vs Session Settings in Connection Pools
+- **Date**: 2026-10-16
+- **Context**: Milestone M1 / Tenant Context Isolation (`SEC-010`, `AC-TEN-04`)
+- **Discovery**:
+  Standard `SET app.current_business_id = '...'` persists at the connection session level. When a connection pool reuses that physical socket for another HTTP request, the new request inadvertently inherits the prior tenant's ID if an error or incomplete reset occurs.
+- **Architectural Solution**:
+  Implemented `withTenantContext` in `src/db/tenant-context.ts`:
+  1. Validates the `businessId` using a strict UUIDv4 regex.
+  2. Acquires a connection from the routed shard pool.
+  3. Executes `BEGIN`.
+  4. Calls `SELECT set_config('app.current_business_id', $1, true)` where the 3rd parameter (`is_local = true`) restricts the setting's lifespan strictly to the transaction.
+  5. Upon `COMMIT` or `ROLLBACK`, PostgreSQL automatically clears the variable.
+  6. As a defense-in-depth measure, the `finally` block executes `SELECT set_config('app.current_business_id', '', false)` and discards broken sockets via `client.release(true)` if an error state prevents resetting.
+  Automated testing with 30 interleaved parallel requests proved zero context leakage across pooled connections.
+
+---
+
+## Defense Quick Reference: Core Architectural Concepts for the Owner
+1. **Why Two Logical Shards?**
+   Demonstrates multi-tenant database scaling architecture (horizontal partitioning) without requiring expensive distributed physical infrastructure. Sharding routing is deterministic: `sha256(business_id) % 2` guarantees stable, balanced routing.
+2. **Why Forced RLS?**
+   Even if an application developer forgets to add `WHERE business_id = $1` to a query, PostgreSQL Row-Level Security automatically filters the rows at the database engine level based on `current_setting('app.current_business_id')`.
+3. **Why Composite Foreign Keys?**
+   `departments` references `(business_id, branch_id)` rather than just `branch_id`. This guarantees that a department in Business A cannot be linked to a branch in Business B, even if application validation has a bug.
+4. **Why Transaction-Scoped Context?**
+   Database connections in modern web servers are pooled (shared). A transaction-scoped setting ensures that tenant credentials exist only for the duration of a single SQL transaction and are never inherited by the next request using that connection.

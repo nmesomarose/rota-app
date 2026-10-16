@@ -1,7 +1,7 @@
 # DR-05: Authentication, Session Lifecycle, and Token Revocation Design
 
 ## Status
-`PROPOSED` (Awaiting Product Owner Approval — Gate G-02)
+`ACCEPTED (Engineering Decision)` — Dual-layer token architecture and database session model adopted. Gate G-02 (Google OAuth credentials) preserved as pending provider verification; baseline proceeds with email/password authentication.
 
 ## Context
 Rota requires multi-business identity (`D-01`), short-lived access tokens, refresh token family rotation, immediate session revocation upon security events, and secure credential storage (`PRD 6.1`, `11.1`).

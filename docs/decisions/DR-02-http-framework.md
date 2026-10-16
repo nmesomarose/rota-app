@@ -1,7 +1,7 @@
 # DR-02: Backend HTTP Framework Selection
 
 ## Status
-`PROPOSED` (Awaiting Product Owner Approval)
+`ACCEPTED (Engineering Decision)` — Implemented in scaffold (`src/app.ts`, `src/routes/health.ts`) and verified passing automated checks.
 
 ## Context
 `PRD.md` Section 12.6 lists **Express** or **Hono** as candidate HTTP frameworks running on Node.js.

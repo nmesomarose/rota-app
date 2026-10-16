@@ -1,7 +1,7 @@
 # DR-03: Background Job Queue, Webhook Inbox, and Outbox Sweeper
 
 ## Status
-`PROPOSED` (Awaiting Product Owner Approval)
+`ACCEPTED (Engineering Decision)` — Dual-layer inbox/sweeper architecture adopted; Milestone M1 focuses on DB foundation, while BullMQ/Redis worker dispatcher is phased into M2/M3 per D-29.
 
 ## Context
 Rota relies heavily on asynchronous background processing for:

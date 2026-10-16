@@ -1,7 +1,7 @@
 # DR-06: Mobile Client State Management and Cache Invalidation
 
 ## Status
-`PROPOSED` (Awaiting Product Owner Approval)
+`ACCEPTED (Engineering Decision)` — TanStack Query v5 + Zustand state architecture adopted. Read-only offline shift viewing with immediate cache clearing on business switch confirmed per FR-OFF-001–004.
 
 ## Context
 Rota's mobile application (Expo / React Native) requires:

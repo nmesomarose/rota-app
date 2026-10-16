@@ -1,7 +1,7 @@
 # DR-07: Database Access Layer and Migration Tooling
 
 ## Status
-`PROPOSED` (Awaiting Product Owner Approval)
+`ACCEPTED (Engineering Decision) / VERIFIED IN CODE & TESTS` — Implemented using Kysely, pg connection pools, and node-pg-migrate with version-controlled migrations across control plane and both logical shards. Validated with automated test coverage.
 
 ## Context
 The Rota database layer has unique, non-negotiable security and architecture constraints:

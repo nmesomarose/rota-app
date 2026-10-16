@@ -1,7 +1,7 @@
 # DR-01: Payment Simulation Boundary, Currency Strategy, and Renewal Model
 
 ## Status
-`PROPOSED` (Awaiting Product Owner Approval — Gate G-01 & FX-01)
+`ACCEPTED (Engineering Decision)` — Preserves unresolved Gate G-01 (Paystack/Flutterwave merchant capabilities) and Gate FX-01 (Live FX provider selection). Baseline implementation proceeds with visibly labelled simulation per D-25.
 
 ## Context
 Rota requires server-authoritative billing with USD as the base list price schedule (`PRD 8.1`, `D-23`, `19.5`), server-calculated NGN quotes dynamically derived from a configured FX rate source, and support for proration, scheduled downgrades, and failed-renewal recovery.
