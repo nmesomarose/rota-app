@@ -76,6 +76,20 @@ describe('Tenant Isolation and Security Test Suite', () => {
   });
 
   describe('A. Tenant Isolation and Row-Level Security', () => {
+    it('Verified runtime execution role is strictly rota_app (non-superuser, NOBYPASSRLS)', async () => {
+      await withTenantContext(bizAId, async (client) => {
+        const userRes = await client.query('SELECT CURRENT_USER AS current_user, SESSION_USER AS session_user');
+        assert.equal(userRes.rows[0].current_user, 'rota_app', 'Execution must run as rota_app');
+        assert.equal(userRes.rows[0].session_user, 'rota_app', 'Session user must be rota_app');
+
+        const roleRes = await client.query(
+          'SELECT rolsuper, rolbypassrls FROM pg_catalog.pg_roles WHERE rolname = CURRENT_USER'
+        );
+        assert.equal(roleRes.rows[0].rolsuper, false, 'Application role must NOT be a superuser');
+        assert.equal(roleRes.rows[0].rolbypassrls, false, 'Application role must NOT have BYPASSRLS privilege');
+      });
+    });
+
     it('Tenant A can read its own records', async () => {
       await withTenantContext(bizAId, async (client) => {
         const res = await client.query('SELECT * FROM branches');
@@ -102,6 +116,13 @@ describe('Tenant Isolation and Security Test Suite', () => {
       }, { shardId: shardB });
     });
 
+    it('Tenant A cannot read Tenant B records even if querying explicitly by Tenant B business_id', async () => {
+      await withTenantContext(bizAId, async (client) => {
+        const res = await client.query('SELECT * FROM branches WHERE business_id = $1', [bizBId]);
+        assert.equal(res.rows.length, 0, 'Tenant A must receive 0 rows when filtering by Tenant B business_id');
+      }, { shardId: shardB });
+    });
+
     it('Tenant A cannot update Tenant B records', async () => {
       await withTenantContext(bizAId, async (client) => {
         const res = await client.query(
@@ -122,7 +143,36 @@ describe('Tenant Isolation and Security Test Suite', () => {
       }, { shardId: shardB });
     });
 
-    it('Missing tenant context fails closed (returns 0 rows on SELECT)', async () => {
+    it('Tenant A context cannot insert record with Tenant B business_id (spoofed business_id blocked by WITH CHECK)', async () => {
+      await withTenantContext(bizAId, async (client) => {
+        await assert.rejects(
+          async () => {
+            await client.query(
+              'INSERT INTO branches (business_id, name) VALUES ($1, $2)',
+              [bizBId, 'Malicious Branch Spoofing Tenant B']
+            );
+          },
+          /new row violates row-level security policy/i,
+          'Inserting a record with another tenant business_id must be rejected by RLS WITH CHECK'
+        );
+      });
+    });
+
+    it('Tenant A context cannot insert department claiming Tenant B business_id', async () => {
+      await withTenantContext(bizAId, async (client) => {
+        await assert.rejects(
+          async () => {
+            await client.query(
+              'INSERT INTO departments (business_id, branch_id, name) VALUES ($1, $2, $3)',
+              [bizBId, branchAId, 'Malicious Spoofed Department']
+            );
+          },
+          /new row violates row-level security policy/i
+        );
+      });
+    });
+
+    it('Missing tenant context fails closed for reads (returns 0 rows on SELECT)', async () => {
       const pool = getShardPool(shardA);
       const client = await pool.connect();
       try {
@@ -133,10 +183,22 @@ describe('Tenant Isolation and Security Test Suite', () => {
       }
     });
 
-    it('Missing tenant context fails closed on INSERT (RLS check violation)', async () => {
+    it('Missing tenant context fails closed on INSERT across all tenant tables', async () => {
       const pool = getShardPool(shardA);
       const client = await pool.connect();
       try {
+        // 1. businesses
+        await assert.rejects(
+          async () => {
+            await client.query(
+              'INSERT INTO businesses (id, name) VALUES ($1, $2)',
+              [randomUUID(), 'Unauthorized Biz']
+            );
+          },
+          /new row violates row-level security policy/i
+        );
+
+        // 2. branches
         await assert.rejects(
           async () => {
             await client.query(
@@ -146,18 +208,52 @@ describe('Tenant Isolation and Security Test Suite', () => {
           },
           /new row violates row-level security policy/i
         );
+
+        // 3. departments
+        await assert.rejects(
+          async () => {
+            await client.query(
+              'INSERT INTO departments (business_id, branch_id, name) VALUES ($1, $2, $3)',
+              [bizAId, branchAId, 'Unauthorized Dept']
+            );
+          },
+          /new row violates row-level security policy/i
+        );
+
+        // 4. memberships
+        await assert.rejects(
+          async () => {
+            await client.query(
+              'INSERT INTO memberships (business_id, user_id, role) VALUES ($1, $2, $3)',
+              [bizAId, randomUUID(), 'staff']
+            );
+          },
+          /new row violates row-level security policy/i
+        );
       } finally {
         client.release();
       }
     });
 
-    it('Invalid business_id format is rejected before query execution', async () => {
-      await assert.rejects(
-        async () => {
-          await withTenantContext('not-a-valid-uuid', async () => {});
-        },
-        TenantContextError
-      );
+    it('Invalid business_id format and SQL injection payloads are rejected before execution', async () => {
+      const malformedPayloads = [
+        'not-a-valid-uuid',
+        "00000000-0000-0000-0000-000000000000'; DROP TABLE branches; --",
+        "' OR '1'='1",
+        '00000000-0000-0000-0000-000000000000; SELECT 1',
+        '',
+        '   ',
+      ];
+
+      for (const payload of malformedPayloads) {
+        await assert.rejects(
+          async () => {
+            await withTenantContext(payload, async () => {});
+          },
+          TenantContextError,
+          `Payload '${payload}' must be rejected by validateBusinessId`
+        );
+      }
     });
   });
 
@@ -307,4 +403,62 @@ describe('Tenant Isolation and Security Test Suite', () => {
       assert.deepEqual(pol1.rows, pol2.rows, 'RLS policies must be identical across shards');
     });
   });
+
+  describe('E. Privilege Escalation and Security Boundary Defense', () => {
+    it('Application role (rota_app) cannot disable RLS on tenant tables', async () => {
+      await withTenantContext(bizAId, async (client) => {
+        await assert.rejects(
+          async () => {
+            await client.query('ALTER TABLE branches DISABLE ROW LEVEL SECURITY');
+          },
+          /must be owner of table/i,
+          'Non-owner application role must be blocked from disabling RLS'
+        );
+      });
+    });
+
+    it('Application role (rota_app) cannot drop tenant RLS policies', async () => {
+      await withTenantContext(bizAId, async (client) => {
+        await assert.rejects(
+          async () => {
+            await client.query('DROP POLICY tenant_isolation_branches ON branches');
+          },
+          /must be owner of (relation|table)/i,
+          'Non-owner application role must be blocked from dropping policies'
+        );
+      });
+    });
+
+    it('Application role (rota_app) cannot grant itself superuser or bypassrls', async () => {
+      await withTenantContext(bizAId, async (client) => {
+        await assert.rejects(
+          async () => {
+            await client.query('ALTER ROLE rota_app WITH SUPERUSER');
+          },
+          /permission denied/i,
+          'Application role must not be able to escalate its own role privileges'
+        );
+      });
+    });
+
+    it('Unregistered business UUID yields zero rows on SELECT and foreign key error on child insert', async () => {
+      const nonExistentBizId = randomUUID();
+      await withTenantContext(nonExistentBizId, async (client) => {
+        const res = await client.query('SELECT * FROM branches');
+        assert.equal(res.rows.length, 0, 'Unregistered business must receive zero rows');
+
+        await assert.rejects(
+          async () => {
+            await client.query(
+              'INSERT INTO branches (business_id, name) VALUES ($1, $2)',
+              [nonExistentBizId, 'Orphan Branch']
+            );
+          },
+          /violates foreign key constraint "branches_business_id_fkey"/i,
+          'Inserting child resource without parent business must fail foreign key constraint'
+        );
+      });
+    });
+  });
 });
+
