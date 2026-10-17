@@ -144,6 +144,33 @@ This living document captures technical discoveries, architectural trade-offs, a
 
 ---
 
+## Log Entry 14: Refresh Token Rotation with Grace Window and Family Revocation
+- **Date**: 2026-10-17
+- **Context**: Milestone M2 / Authentication & Session Security (`DR-05`, `AC-AUTH-01`, `SEC-020`)
+- **Discovery**:
+  Mobile networks frequently suffer from packet drops, high latency, and duplicate retry requests. In standard refresh rotation, if a client emits two rapid requests with the same refresh token, the second request will fail or be flagged as an attack if rotation is purely single-use. However, naive long windows permit replay attacks.
+- **Architectural Solution**:
+  Implemented a dual-layer rotation defense:
+  1. Refresh tokens are stored strictly as SHA-256 hashes in control-plane `refresh_tokens`.
+  2. When rotated, the parent token is marked `used_at = NOW()` and links to its successor (`replaced_by`).
+  3. The server maintains a short-lived ephemeral successor cache (15s TTL). If a concurrent request presents an already-used token within the 10-second grace window (`AC-AUTH-01`), the server returns the *exact same successor token pair*.
+  4. If a token is reused *outside* the 10-second grace window, the server treats it as token theft (`SEC-020`), terminates the session in `sessions`, and revokes all tokens belonging to that `family_id`.
+
+---
+
+## Log Entry 15: Cross-Shard Directory Consistency via Transactional Outbox and Reconciliation
+- **Date**: 2026-10-17
+- **Context**: Milestone M2 / Multi-Tenant Sharding & Directory Lookup (`PRD 9.1`, `DR-03`, `AC-TEN-07`)
+- **Discovery**:
+  In a sharded multi-tenant architecture, querying all tenant shards to determine which businesses a user belongs to during login causes high database fan-out and latency. The control plane requires a `membership_directory` table. However, because PostgreSQL does not natively coordinate two-phase commits between independent schemas/shards without distributed transactions, a crash during onboarding could leave tenant memberships orphaned from the login directory.
+- **Architectural Solution**:
+  Adopted the **Transactional Outbox & Deep Reconciliation Pattern**:
+  1. The tenant shard mutation transaction inserts into `businesses`, `branches`, `departments`, `memberships`, and `membership_outbox` atomically inside `withTenantContext`.
+  2. The control plane `membership_directory` is updated immediately following commit.
+  3. A reconciliation sweeper (`reconcileDirectoryForBusiness`) reads authoritative tenant memberships and repairs any missing directory records (`AC-TEN-07`).
+
+---
+
 ## Defense Quick Reference: Core Architectural Concepts for the Owner
 1. **Why Two Logical Shards?**
    Demonstrates multi-tenant database scaling architecture (horizontal partitioning) without requiring expensive distributed physical infrastructure. Sharding routing is deterministic: `sha256(business_id) % 2` guarantees stable, balanced routing.
@@ -153,3 +180,4 @@ This living document captures technical discoveries, architectural trade-offs, a
    `departments` references `(business_id, branch_id)` rather than just `branch_id`. This guarantees that a department in Business A cannot be linked to a branch in Business B, even if application validation has a bug.
 4. **Why Transaction-Scoped Context?**
    Database connections in modern web servers are pooled (shared). A transaction-scoped setting ensures that tenant credentials exist only for the duration of a single SQL transaction and are never inherited by the next request using that connection.
+
