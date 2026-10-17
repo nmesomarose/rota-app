@@ -2,6 +2,7 @@ import { withTenantContext } from '../db/tenant-context.ts';
 import { localToUtc, isValidTimeZone } from './timezone-service.ts';
 import { detectAssignmentConflicts, type ShiftConflictResult } from './conflict-service.ts';
 import { notifyPublishedShifts, notifyShiftChange } from './notification-service.ts';
+import { cacheService } from './cache-service.ts';
 import { AppError } from '../utils/errors.ts';
 
 export interface CreateShiftInput {
@@ -78,7 +79,9 @@ export async function createShift(
       [businessId, input.branchId, input.departmentId, startsAt, endsAt, timeZone, input.status || 'draft']
     );
 
-    return res.rows[0];
+    const created = res.rows[0];
+    cacheService.invalidatePrefix(businessId, 'schedule');
+    return created;
   });
 }
 
@@ -136,6 +139,7 @@ export async function updateShift(
       );
     }
 
+    cacheService.invalidatePrefix(businessId, 'schedule');
     return updated;
   });
 }
@@ -160,6 +164,7 @@ export async function deleteShift(
     if (res.rowCount === 0) {
       throw new AppError(404, 'NOT_FOUND', 'Shift not found');
     }
+    cacheService.invalidatePrefix(businessId, 'schedule');
     return { success: true, deletedId: shiftId };
   });
 }
@@ -228,6 +233,7 @@ export async function assignWorker(
         ]
       );
 
+      cacheService.invalidatePrefix(businessId, 'schedule');
       return {
         assignment: assignRes.rows[0],
         overridden: true,
@@ -243,6 +249,7 @@ export async function assignWorker(
       [businessId, shiftId, membershipId]
     );
 
+    cacheService.invalidatePrefix(businessId, 'schedule');
     return {
       assignment: assignRes.rows[0],
       overridden: false,
@@ -267,6 +274,7 @@ export async function unassignWorker(
     if (res.rowCount === 0) {
       throw new AppError(404, 'NOT_FOUND', 'Assignment not found');
     }
+    cacheService.invalidatePrefix(businessId, 'schedule');
     return { success: true };
   });
 }
@@ -368,6 +376,7 @@ export async function generateShiftsFromRequirement(
       createdShifts.push(shiftRes.rows[0]);
     }
 
+    cacheService.invalidatePrefix(businessId, 'schedule');
     return createdShifts;
   });
 }
@@ -420,6 +429,7 @@ export async function publishSchedule(
   // Notify affected staff (AC-006, FR-SCH-006, BR-002)
   await notifyPublishedShifts(businessId, shiftIds);
 
+  cacheService.invalidatePrefix(businessId, 'schedule');
   return published;
 }
 
@@ -431,8 +441,16 @@ export async function getSchedule(
   callerRole: string,
   options?: { departmentId?: string; branchId?: string; status?: string }
 ) {
-  return withTenantContext(businessId, async (client) => {
-    // If caller is Staff, enforce status = 'published' (AC-SCH-02)
+  // If caller is Staff, enforce status = 'published' (AC-SCH-02)
+  const effectiveStatus = callerRole === 'Staff' ? 'published' : (options?.status || 'all');
+  const cacheKey = `schedule:${callerRole}:${options?.departmentId || 'all'}:${options?.branchId || 'all'}:${effectiveStatus}`;
+
+  const cached = cacheService.get<unknown[]>(businessId, cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const result = await withTenantContext(businessId, async (client) => {
     let statusFilter = options?.status;
     if (callerRole === 'Staff') {
       statusFilter = 'published';
@@ -478,4 +496,7 @@ export async function getSchedule(
     const res = await client.query(query, params);
     return res.rows;
   });
+
+  cacheService.set(businessId, cacheKey, result, 60);
+  return result;
 }

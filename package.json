@@ -10,6 +10,10 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types tests/**/*.test.ts",
     "test:sharding": "node --test --experimental-strip-types tests/sharding/shard-router.test.ts",
+    "benchmark:caching": "node --experimental-strip-types scripts/benchmark-caching.ts",
+    "benchmark:explain": "node --experimental-strip-types scripts/explain-analyze.ts",
+    "drill:resilience": "node --experimental-strip-types scripts/pool-exhaustion-drill.ts",
+    "verify:sharding": "node --experimental-strip-types scripts/verify-sharding-distribution.ts",
     "db:migrate:control": "node --experimental-strip-types scripts/migrate.ts control",
     "db:migrate:shards": "node --experimental-strip-types scripts/migrate.ts shards",
     "db:migrate": "node --experimental-strip-types scripts/migrate.ts all"
