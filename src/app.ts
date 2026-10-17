@@ -5,6 +5,9 @@ import { authRouter } from './routes/auth.ts';
 import { organizationRouter } from './routes/organization.ts';
 import { schedulingRouter } from './routes/scheduling.ts';
 import { notificationsRouter } from './routes/notifications.ts';
+import { swapsRouter } from './routes/swaps.ts';
+import { attendanceRouter } from './routes/attendance.ts';
+import { activityRouter } from './routes/activity.ts';
 import { sendError } from './utils/errors.ts';
 
 /**
@@ -25,6 +28,9 @@ export function createApp(): Application {
   app.use(organizationRouter);
   app.use(schedulingRouter);
   app.use(notificationsRouter);
+  app.use(swapsRouter);
+  app.use(attendanceRouter);
+  app.use(activityRouter);
 
   // 4. Catch-all 404 handler for undefined routes
   app.use((req: Request, res: Response) => {

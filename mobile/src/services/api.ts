@@ -297,4 +297,92 @@ export const api = {
         method: 'POST',
       }),
   },
+
+  swaps: {
+    requestSwap: async (data: {
+      requesterShiftId: string;
+      counterpartMembershipId: string;
+      counterpartShiftId: string;
+      notes?: string;
+    }) =>
+      apiRequest<{ swap: any }>('/v1/swaps', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    listSwaps: async () =>
+      apiRequest<{ swaps: any[] }>('/v1/swaps', {
+        method: 'GET',
+      }),
+
+    acceptSwap: async (id: string) =>
+      apiRequest<{ swap: any }>(`/v1/swaps/${id}/accept`, {
+        method: 'POST',
+      }),
+
+    rejectSwap: async (id: string) =>
+      apiRequest<{ swap: any }>(`/v1/swaps/${id}/reject`, {
+        method: 'POST',
+      }),
+
+    approveSwap: async (id: string) =>
+      apiRequest<{ swap: any }>(`/v1/swaps/${id}/approve`, {
+        method: 'POST',
+      }),
+
+    cancelSwap: async (id: string) =>
+      apiRequest<{ swap: any }>(`/v1/swaps/${id}/cancel`, {
+        method: 'POST',
+      }),
+  },
+
+  attendance: {
+    record: async (data: {
+      shiftAssignmentId: string;
+      state: 'present' | 'late' | 'absent';
+      notes?: string;
+    }) =>
+      apiRequest<{ attendance: any }>('/v1/attendance', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    list: async (params?: { shiftId?: string; membershipId?: string; departmentId?: string }) => {
+      const query = new URLSearchParams();
+      if (params?.shiftId) query.set('shiftId', params.shiftId);
+      if (params?.membershipId) query.set('membershipId', params.membershipId);
+      if (params?.departmentId) query.set('departmentId', params.departmentId);
+      const qs = query.toString() ? `?${query.toString()}` : '';
+      return apiRequest<{ attendance: any[] }>(`/v1/attendance${qs}`, {
+        method: 'GET',
+      });
+    },
+  },
+
+  activity: {
+    getFeed: async (params?: { limit?: number; cursor?: string }) => {
+      const query = new URLSearchParams();
+      if (params?.limit) query.set('limit', String(params.limit));
+      if (params?.cursor) query.set('cursor', params.cursor);
+      const qs = query.toString() ? `?${query.toString()}` : '';
+      return apiRequest<{
+        events: Array<{
+          id: string;
+          business_id: string;
+          created_at: string;
+          type: string;
+          branch_id: string | null;
+          department_id: string | null;
+          actor_membership_id: string | null;
+          subject_membership_id: string | null;
+          visibility_class: string;
+          payload: Record<string, unknown>;
+        }>;
+        nextCursor: string | null;
+        hasMore: boolean;
+      }>(`/v1/activity${qs}`, {
+        method: 'GET',
+      });
+    },
+  },
 };

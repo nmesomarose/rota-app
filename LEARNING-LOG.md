@@ -212,6 +212,31 @@ This living document captures technical discoveries, architectural trade-offs, a
 
 ---
 
+## Log Entry 20: Optimistic Concurrency & Monotonic Shift Versioning in Peer Swaps
+- **Date**: 2026-10-17
+- **Context**: Milestone M5 / Shift Swaps & Stale Request Invalidation (`FR-SWP-001..007`, `BR-003`, `AC-007`)
+- **Discovery**:
+  In workforce scheduling, shifts are frequently re-timed or reassigned while colleagues negotiate swaps. If a swap request is initiated against a shift at 08:00, but a manager changes the shift to 14:00 before the peer accepts or the manager approves, approving the swap would silently place the peer into an unexpected time slot.
+- **Architectural Solution**:
+  1. `swap_requests` stores `requester_shift_version` and `counterpart_shift_version` captured at request time.
+  2. Every mutation to a shift increments its monotonic `version` integer.
+  3. During peer acceptance and manager approval, both shifts are locked `FOR UPDATE` and current versions compared against the recorded versions. If either version differs, the swap request is immediately transitioned to `stale` and rejected with 409 `STALE_SWAP`.
+  4. Final manager approval and assignment exchange occurs inside an atomic transaction block inside `withTenantContext`, bumping both shift versions and updating both `shift_assignments` simultaneously.
+
+---
+
+## Log Entry 21: Server-Side Audience Scoping & Stable Cursor Pagination Across 10,000 Records
+- **Date**: 2026-10-17
+- **Context**: Milestone M5 / Scoped Activity Feed & High-Volume Pagination (`FR-ACT-001..007`, `AC-014`, `AC-ACT-01..03`)
+- **Discovery**:
+  Offset-based pagination (`OFFSET 10000 LIMIT 50`) degrades linearly as datasets grow and suffers from duplicate/missing records when items are inserted while a user scrolls. Furthermore, filtering private events (like other workers' absences or security alerts) on the mobile client violates tenant and role security (`D-04`, `AC-ACT-01`).
+- **Architectural Solution**:
+  1. **Strict Server-Side Visibility Resolution**: Visibility classes (`schedule`, `swap`, `attendance`, `membership`, `override`, `billing`, `security`, `public`) are filtered in SQL where clauses before pagination limits are applied. Staff only receive events they act in or are the subject of (`AC-ACT-01`), and security alerts are restricted to the affected user and Owners (`AC-ACT-02`).
+  2. **Keyset Cursor Pagination**: Queries order by `created_at DESC, id DESC` backed by composite indexes `(business_id, created_at DESC, id DESC)`. The cursor is a Base64-encoded tuple of `{ createdAt, id }`. Next-page queries use `(created_at < cursor.createdAt OR (created_at = cursor.createdAt AND id < cursor.id))` with `LIMIT $limit + 1`.
+  3. Acceptance criterion `AC-014` was verified across 10,000 seeded events with zero duplicates and zero gaps across 20 consecutive pages.
+
+---
+
 ## Defense Quick Reference: Core Architectural Concepts for the Owner
 1. **Why Two Logical Shards?**
    Demonstrates multi-tenant database scaling architecture (horizontal partitioning) without requiring expensive distributed physical infrastructure. Sharding routing is deterministic: `sha256(business_id) % 2` guarantees stable, balanced routing.
@@ -221,5 +246,8 @@ This living document captures technical discoveries, architectural trade-offs, a
    `departments` references `(business_id, branch_id)` rather than just `branch_id`. This guarantees that a department in Business A cannot be linked to a branch in Business B, even if application validation has a bug.
 4. **Why Transaction-Scoped Context?**
    Database connections in modern web servers are pooled (shared). A transaction-scoped setting ensures that tenant credentials exist only for the duration of a single SQL transaction and are never inherited by the next request using that connection.
+5. **Why Monotonic Shift Versioning for Swaps?**
+   Prevents race conditions where a shift changes time while a swap is being negotiated. Storing snapshot versions ensures shifts are swapped exactly as intended or rejected cleanly if modified.
+
 
 
