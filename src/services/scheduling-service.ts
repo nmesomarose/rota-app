@@ -1,6 +1,7 @@
 import { withTenantContext } from '../db/tenant-context.ts';
 import { localToUtc, isValidTimeZone } from './timezone-service.ts';
 import { detectAssignmentConflicts, type ShiftConflictResult } from './conflict-service.ts';
+import { notifyPublishedShifts, notifyShiftChange } from './notification-service.ts';
 import { AppError } from '../utils/errors.ts';
 
 export interface CreateShiftInput {
@@ -122,7 +123,20 @@ export async function updateShift(
       [startsAt, endsAt, input.status || null, input.departmentId || null, businessId, shiftId]
     );
 
-    return res.rows[0];
+    const updated = res.rows[0];
+
+    // If shift was cancelled or rescheduled, notify affected staff (AC-SCH-04, AC-NOT-01)
+    if (input.status === 'cancelled' || (input.startsAt && input.startsAt !== current.starts_at.toISOString())) {
+      await notifyShiftChange(
+        businessId,
+        shiftId,
+        input.status === 'cancelled' ? 'cancelled' : 'updated',
+        current.starts_at,
+        startsAt
+      );
+    }
+
+    return updated;
   });
 }
 
@@ -392,7 +406,7 @@ export async function publishSchedule(
     throw new AppError(400, 'VALIDATION_ERROR', 'shiftIds array cannot be empty');
   }
 
-  return withTenantContext(businessId, async (client) => {
+  const published = await withTenantContext(businessId, async (client) => {
     const res = await client.query(
       `UPDATE shifts
        SET status = 'published', version = version + 1, updated_at = NOW()
@@ -402,6 +416,11 @@ export async function publishSchedule(
     );
     return res.rows;
   });
+
+  // Notify affected staff (AC-006, FR-SCH-006, BR-002)
+  await notifyPublishedShifts(businessId, shiftIds);
+
+  return published;
 }
 
 /**

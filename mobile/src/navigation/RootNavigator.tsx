@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { RootStackParamList, MainTabParamList } from './types.ts';
 import { LoginScreen } from '../screens/LoginScreen.tsx';
+import { BusinessSelectScreen } from '../screens/BusinessSelectScreen.tsx';
 import { ScheduleScreen } from '../screens/ScheduleScreen.tsx';
 import { FeedScreen } from '../screens/FeedScreen.tsx';
 import { TeamScreen } from '../screens/TeamScreen.tsx';
@@ -23,7 +24,7 @@ export function MainTabs() {
       }}
     >
       <Tab.Screen name="Schedule" component={ScheduleScreen} options={{ title: 'Schedule' }} />
-      <Tab.Screen name="Feed" component={FeedScreen} options={{ title: 'Feed' }} />
+      <Tab.Screen name="Feed" component={FeedScreen} options={{ title: 'Inbox' }} />
       <Tab.Screen name="Team" component={TeamScreen} options={{ title: 'Team' }} />
       <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
     </Tab.Navigator>
@@ -34,6 +35,7 @@ export function RootNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Auth" component={LoginScreen} />
+      <Stack.Screen name="BusinessSelect" component={BusinessSelectScreen} />
       <Stack.Screen name="Main" component={MainTabs} />
     </Stack.Navigator>
   );

@@ -1,23 +1,19 @@
 # Rota: Project State & Workstream Tracker
 
 ## 1. Project Status Summary
-- **Current Milestone**: **M3 — Scheduling Core** (VERIFIED & COMPLETE).
+- **Current Milestone**: **M4 — Mobile Integration, Offline Behaviour & Notifications** (VERIFIED & COMPLETE).
 - **Implementation Status**:
   - Local PostgreSQL 16 environment verified (`rota-postgres` container).
   - Schemas `rota_control`, `rota_shard_1`, and `rota_shard_2` provisioned with identical, symmetrical tenant plane tables.
   - Non-superuser application role `rota_app` provisioned without `SUPERUSER` or `BYPASSRLS`.
-  - Migration 003 applied across tenant shards (`shifts`, `staffing_requirements`, `shift_assignments`, `availability_entries`, `audit_log` with forced RLS, composite foreign keys, and tenant isolation policies).
-  - Timezone engine implemented: preserves local wall-clock hours in business IANA time zone across Daylight Saving Time (DST) clock changes (`AC-SCH-03`, `FR-SCH-009`).
-  - Shifts lifecycle implemented: `draft` -> `review` -> `published` -> `cancelled`.
-  - Schedule visibility permissions verified: Staff view only `published` shifts (`AC-SCH-02`); managers view all statuses.
-  - Staff direct shift deletion prohibited: returns 403 `FORBIDDEN` (`AC-002`, `FR-RBAC-002`).
-  - Single-department constraint enforced: Staff can only be assigned to shifts in their home department (`C-07`, `AC-DM-02`).
-  - Conflict detection engine implemented: flags overlapping shifts (`BR-001`), availability conflicts (`BR-005`), and department mismatches.
-  - Reasoned manager overrides implemented: allows privileged managers to override availability or overlap conflicts with a mandatory non-empty reason, storing `override_reason`, `override_by`, and `override_at` on the assignment, and generating a persistent `audit_log` entry with `request_id` (`AC-RBAC-03`, `FR-AVL-003`).
-  - Shift versioning verified: monotonic version bumps on every edit (`FR-SWP-007`).
-  - Cross-tenant scheduling isolation verified: cross-tenant shift queries return 0 rows and cross-tenant mutations return 404 `NOT_FOUND` (`SEC-015`, `AC-TEN-01`).
-  - Automated test suite passing: 71 tests across 17 suites in ~11s (including all 41 M1 tenancy/isolation/router tests, 21 M2 auth/onboarding/switching tests, and 9 comprehensive M3 scheduling core tests).
-  - TypeScript typecheck passing cleanly with 0 errors (`tsc --noEmit`).
+  - Migrations 003 control (`push_tokens`) and 004 tenant (`notification_deliveries`, `inbox_items`) applied across shards with forced RLS and tenant isolation.
+  - Mobile authentication flow (`LoginScreen.tsx`) integrated with `/v1/auth/login`, Zod-aligned request/response envelopes, and secure token storage in `expo-secure-store` (`AC-AUTH-07`).
+  - Multi-business organization selection (`BusinessSelectScreen.tsx`) integrated with `/v1/organizations/memberships` and `/v1/organizations/switch-business`.
+  - Offline upcoming shift cache (`ScheduleScreen.tsx`, `offline-cache.ts`) implemented with 14-day duration, visible last-updated watermark, and synchronous cache purging on business switch or logout (`AC-OFF-01`, `AC-OFF-02`, `FR-OFF-004`).
+  - In-app inbox and notification dispatcher (`FeedScreen.tsx`, `notification-service.ts`) implemented with schedule publication alerts, shift cancellation alerts, urgent 12-hour detection (`D-14`, `AC-NOT-01`), deduplication (`C-10`), and read receipt updates.
+  - Automated test suite passing: 79 tests across 19 suites in ~12s (including 41 M1 tenancy tests, 21 M2 auth/switching tests, 9 M3 scheduling tests, 5 M4 notification integration tests, and 3 M4 mobile offline/security tests).
+  - TypeScript typecheck passing cleanly across both backend (`tsc --noEmit`) and mobile (`tsc --noEmit`).
+  - Expo Android bundle verification passing (`npx expo export -p android --no-bytecode` exiting code 0).
 - **PRD Version**: v0.3 (Draft, authoritative product decisions consolidated).
 
 ---
@@ -30,8 +26,8 @@
 | **M1** | **Tenant/Shard Proof Before Feature Work**: Control/tenant planes, 2 logical shards, transaction context (`SET LOCAL`), forced RLS, composite FKs, pool reuse safety, adversarial cross-tenant test harness. | **DONE** | Fully implemented, migrated, and verified by automated tests. |
 | **M2** | **Identity & Organisation Foundation**: Auth/session/revocation, business switching, role matrix, branches, branch-owned departments, invitations foundation, memberships, Owner onboarding, transactional outbox & directory reconciliation. | **DONE** | Fully implemented, migrated, and verified by 62 automated tests. |
 | **M3** | **Scheduling Core**: Staffing requirements (wall-clock), shifts (UTC), conflict engine, reasoned overrides, draft/review/publish, rostered manager roles, branch-scoped schedules, shift versioning, stale swap invalidation foundation. | **DONE** | Fully implemented, migrated, and verified by 71 automated tests. |
-| **M4** | **Mobile/Offline & Notifications**: Read-only upcoming schedule cache, visible last-updated time, branch/business cache clearing, durable jobs, push/in-app notifications, deep links, retries. | **NEXT** | M3 complete. Expo dev build setup. |
-| **M5** | **Swaps, Attendance & Activity**: Same-branch swaps with version check, attendance history, scoped feed with 10k pagination tests. | QUEUED | M4 completion. |
+| **M4** | **Mobile/Offline & Notifications**: Read-only upcoming schedule cache, visible last-updated time, branch/business cache clearing, durable jobs, push/in-app notifications, deep links, retries. | **DONE** | Fully implemented, migrated, and verified by 79 automated tests. |
+| **M5** | **Swaps, Attendance & Activity**: Same-branch swaps with version check, attendance history, scoped feed with 10k pagination tests. | **NEXT** | M4 complete. Shift versioning baseline ready. |
 | **M5** | **Swaps, Attendance & Activity**: Same-branch swaps with version check, attendance history, scoped feed with 10k pagination tests. | QUEUED | M4 completion. |
 | **M6** | **Simulated Billing**: Server quotes, deterministic FX fixtures, Owner confirmation, proration (`PR-01`–`16`), immutable ledger, payment-intent state machine, idempotency, renewal/grace/restricted-mode tests. | QUEUED | M5 completion. Gate G-01 unverified provider remains simulated (`D-25`). |
 | **M7** | **Live Billing Integration (Conditional)**: Real Paystack/Flutterwave integration only if G-01 and FX-01 are formally closed; otherwise document simulator boundary. | BLOCKED | Gate G-01, Gate FX-01. |

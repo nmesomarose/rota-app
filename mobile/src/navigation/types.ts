@@ -9,5 +9,6 @@ export type MainTabParamList = {
 
 export type RootStackParamList = {
   Auth: undefined;
-  Main: NavigatorScreenParams<MainTabParamList>;
+  BusinessSelect: undefined;
+  Main: NavigatorScreenParams<MainTabParamList> | undefined;
 };

@@ -189,6 +189,27 @@ This living document captures technical discoveries, architectural trade-offs, a
 - **Architectural Solution**:
   In all multi-tenant queries aggregating child rows (such as assignments on shifts), group clauses explicitly specify `GROUP BY s.business_id, s.id, s.starts_at`. This satisfies PostgreSQL's strict SQL engine while preventing redundant column listings.
 
+## Log Entry 18: Mobile Token Hygiene & The SecureStore Boundary
+- **Date**: 2026-10-17
+- **Context**: Milestone M4 / Mobile Token Security (`AC-AUTH-07`, `PRD 12.6`, `SEC-005`)
+- **Discovery**:
+  `AsyncStorage` in React Native stores data in unencrypted plaintext on device flash storage (such as SQLite or XML preferences). If access tokens or refresh tokens are written to `AsyncStorage`, any application exploit, physical device extraction, or unsandboxed backup exposes long-lived user credentials.
+- **Architectural Solution**:
+  All JWT access tokens, refresh tokens, and sensitive session credentials are stored exclusively using `expo-secure-store` (backed by iOS Keychain and Android KeyStore / EncryptedSharedPreferences). `AsyncStorage` is restricted strictly to non-sensitive cached schedule representations. Acceptance criterion `AC-AUTH-07` is verified by automated static analysis scanning `mobile/src` for illegal `AsyncStorage` token calls.
+
+---
+
+## Log Entry 19: Offline Read-Only Schedule Cache & Synchronous Context Wiping
+- **Date**: 2026-10-17
+- **Context**: Milestone M4 / Offline Reliability & Multi-Tenant Cache Isolation (`FR-OFF-001..005`, `AC-OFF-01`, `AC-OFF-02`)
+- **Discovery**:
+  Shift workers frequently access schedules in subterranean or low-connectivity environments (such as basement checkout lanes or warehouses). A network drop must not blank out upcoming rosters, but presenting stale data as current causes missed shifts and coverage gaps. Furthermore, switching business contexts must never leak another employer's schedule into view.
+- **Architectural Solution**:
+  1. The client caches the next 14 days of shifts, scoped by composite key `rota_shifts_cache_${businessId}_${userId}`.
+  2. The UI explicitly renders a "Last updated <time>" watermark and an amber "Offline Mode (Read-Only)" banner whenever operating on cached data.
+  3. All offline schedule interactions remain strictly read-only (`AC-OFF-02`).
+  4. On logout, business switch, or session revocation, `clearAllOfflineCache()` synchronously purges all cached tenant schedules alongside navigation stack resetting (`AC-OFF-01`).
+
 ---
 
 ## Defense Quick Reference: Core Architectural Concepts for the Owner
