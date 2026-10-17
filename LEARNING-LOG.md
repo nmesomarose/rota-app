@@ -171,6 +171,26 @@ This living document captures technical discoveries, architectural trade-offs, a
 
 ---
 
+## Log Entry 16: Daylight Saving Time (DST) Preservation in Wall-Clock Staffing Requirements
+- **Date**: 2026-10-17
+- **Context**: Milestone M3 / Scheduling Core Timezone Discipline (`FR-SCH-009`, `AC-SCH-03`)
+- **Discovery**:
+  Storing recurring schedule requirements as UTC offsets leads to operational errors when the host territory undergoes Daylight Saving Time (DST) clock changes (e.g. EST to EDT in New York or GMT to BST in London). If a requirement is stored as fixed UTC, an 08:00 morning shift inadvertently shifts to 09:00 or 07:00 local time after a clock change.
+- **Architectural Solution**:
+  Staffing requirements are strictly stored as local wall-clock times (`local_start: '08:00'`, `local_end: '16:00'`) tied to the business's IANA time zone identifier (e.g. `America/New_York`). Dynamic shift generation evaluates the calendar date against the IANA database using native `Intl.DateTimeFormat`, accurately generating `12:00:00Z` in summer (EDT, UTC-4) and `13:00:00Z` in winter (EST, UTC-5), preserving the true 08:00 local wall-clock start on both sides of any clock transition (`AC-SCH-03`).
+
+---
+
+## Log Entry 17: PostgreSQL Composite Primary Key Grouping in Multi-Tenant Schemas
+- **Date**: 2026-10-17
+- **Context**: Milestone M3 / Multi-Tenant Database Aggregations
+- **Discovery**:
+  When querying composite-key tenant tables where `PRIMARY KEY (business_id, id)` is defined, standard queries executing `SELECT s.id, s.branch_id, ... json_agg(...) FROM shifts s GROUP BY s.id` fail in PostgreSQL with: `column "s.branch_id" must appear in the GROUP BY clause or be used in an aggregate function`. PostgreSQL's functional dependency optimizer only recognizes primary key uniqueness when the complete primary key composite (`s.business_id, s.id`) is present in the `GROUP BY` clause.
+- **Architectural Solution**:
+  In all multi-tenant queries aggregating child rows (such as assignments on shifts), group clauses explicitly specify `GROUP BY s.business_id, s.id, s.starts_at`. This satisfies PostgreSQL's strict SQL engine while preventing redundant column listings.
+
+---
+
 ## Defense Quick Reference: Core Architectural Concepts for the Owner
 1. **Why Two Logical Shards?**
    Demonstrates multi-tenant database scaling architecture (horizontal partitioning) without requiring expensive distributed physical infrastructure. Sharding routing is deterministic: `sha256(business_id) % 2` guarantees stable, balanced routing.
@@ -180,4 +200,5 @@ This living document captures technical discoveries, architectural trade-offs, a
    `departments` references `(business_id, branch_id)` rather than just `branch_id`. This guarantees that a department in Business A cannot be linked to a branch in Business B, even if application validation has a bug.
 4. **Why Transaction-Scoped Context?**
    Database connections in modern web servers are pooled (shared). A transaction-scoped setting ensures that tenant credentials exist only for the duration of a single SQL transaction and are never inherited by the next request using that connection.
+
 

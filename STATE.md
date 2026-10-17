@@ -1,22 +1,22 @@
 # Rota: Project State & Workstream Tracker
 
 ## 1. Project Status Summary
-- **Current Milestone**: **M2 — Identity, Authentication & Organization Foundation** (VERIFIED & COMPLETE).
+- **Current Milestone**: **M3 — Scheduling Core** (VERIFIED & COMPLETE).
 - **Implementation Status**:
   - Local PostgreSQL 16 environment verified (`rota-postgres` container).
   - Schemas `rota_control`, `rota_shard_1`, and `rota_shard_2` provisioned with identical, symmetrical tenant plane tables.
   - Non-superuser application role `rota_app` provisioned without `SUPERUSER` or `BYPASSRLS`.
-  - Migration 002 applied across control plane (`refresh_tokens`, `membership_directory`, user/session alterations) and tenant shards (`subscriptions`, `membership_outbox` with forced RLS and tenant isolation policies).
-  - Argon2id password hashing implemented and verified (64MB memory, 3 iterations, 4 parallelism per `DR-05` and `SEC-008`).
-  - Access token lifecycle implemented (15-minute expiration, HS256 JWT, trusted claims strictly derived from server-side verification).
-  - Refresh token rotation implemented with opaque 64-hex tokens stored strictly as SHA-256 hashes, 30-day idle expiry, 90-day absolute session cap, 10-second grace window for concurrent mobile requests, and immediate token family revocation on reuse (`AC-AUTH-01`, `SEC-020`).
-  - Session revocation tested and verified: `logout` and `logout-all` immediately invalidate active sessions and tokens on next request (`AC-AUTH-02`, `AC-004`).
-  - Organization onboarding (`POST /v1/organizations`) implemented: atomic multi-entity transaction creating business, default branch, initial departments, Owner membership, starter subscription (5 seats), and outbox row on assigned tenant shard.
-  - Control-plane `membership_directory` synchronized and crash reconciliation verified (`AC-TEN-07`).
-  - Business switching (`POST /v1/auth/switch-business`) implemented with tenant membership verification and newly scoped access tokens. Unauthorized switches return 404 `NOT_FOUND` (`SEC-015`).
-  - Client-supplied context spoofing prevented: tenant context derived strictly from authenticated server-side token claims, never client headers (`X-Business-Id`) or query params.
-  - Immediate membership deactivation tested: deactivated memberships rejected on next request (`FR-RBAC-006`, `AC-TEN-06`).
-  - Automated test suite passing: 62 tests across 16 suites in ~10s (including all 41 tenancy/isolation/router tests + 21 new auth, onboarding, switching, reconciliation tests).
+  - Migration 003 applied across tenant shards (`shifts`, `staffing_requirements`, `shift_assignments`, `availability_entries`, `audit_log` with forced RLS, composite foreign keys, and tenant isolation policies).
+  - Timezone engine implemented: preserves local wall-clock hours in business IANA time zone across Daylight Saving Time (DST) clock changes (`AC-SCH-03`, `FR-SCH-009`).
+  - Shifts lifecycle implemented: `draft` -> `review` -> `published` -> `cancelled`.
+  - Schedule visibility permissions verified: Staff view only `published` shifts (`AC-SCH-02`); managers view all statuses.
+  - Staff direct shift deletion prohibited: returns 403 `FORBIDDEN` (`AC-002`, `FR-RBAC-002`).
+  - Single-department constraint enforced: Staff can only be assigned to shifts in their home department (`C-07`, `AC-DM-02`).
+  - Conflict detection engine implemented: flags overlapping shifts (`BR-001`), availability conflicts (`BR-005`), and department mismatches.
+  - Reasoned manager overrides implemented: allows privileged managers to override availability or overlap conflicts with a mandatory non-empty reason, storing `override_reason`, `override_by`, and `override_at` on the assignment, and generating a persistent `audit_log` entry with `request_id` (`AC-RBAC-03`, `FR-AVL-003`).
+  - Shift versioning verified: monotonic version bumps on every edit (`FR-SWP-007`).
+  - Cross-tenant scheduling isolation verified: cross-tenant shift queries return 0 rows and cross-tenant mutations return 404 `NOT_FOUND` (`SEC-015`, `AC-TEN-01`).
+  - Automated test suite passing: 71 tests across 17 suites in ~11s (including all 41 M1 tenancy/isolation/router tests, 21 M2 auth/onboarding/switching tests, and 9 comprehensive M3 scheduling core tests).
   - TypeScript typecheck passing cleanly with 0 errors (`tsc --noEmit`).
 - **PRD Version**: v0.3 (Draft, authoritative product decisions consolidated).
 
@@ -29,8 +29,9 @@
 | **M0** | **Decisions & Feasibility**: Workspace specs, decision records `DR-01` to `DR-08`, architecture, security, and sharding documentation skeleton. | **DONE** | Engineering decisions evaluated and locked; external provider gates identified. |
 | **M1** | **Tenant/Shard Proof Before Feature Work**: Control/tenant planes, 2 logical shards, transaction context (`SET LOCAL`), forced RLS, composite FKs, pool reuse safety, adversarial cross-tenant test harness. | **DONE** | Fully implemented, migrated, and verified by automated tests. |
 | **M2** | **Identity & Organisation Foundation**: Auth/session/revocation, business switching, role matrix, branches, branch-owned departments, invitations foundation, memberships, Owner onboarding, transactional outbox & directory reconciliation. | **DONE** | Fully implemented, migrated, and verified by 62 automated tests. |
-| **M3** | **Scheduling Core**: Staffing requirements (wall-clock), shifts (UTC), conflict engine, reasoned overrides, draft/review/publish, rostered manager roles, branch-scoped schedules, shift versioning, stale swap invalidation. | **NEXT** | M2 complete. |
-| **M4** | **Mobile/Offline & Notifications**: Read-only upcoming schedule cache, visible last-updated time, branch/business cache clearing, durable jobs, push/in-app notifications, deep links, retries. | QUEUED | M3 completion. Expo dev build setup. |
+| **M3** | **Scheduling Core**: Staffing requirements (wall-clock), shifts (UTC), conflict engine, reasoned overrides, draft/review/publish, rostered manager roles, branch-scoped schedules, shift versioning, stale swap invalidation foundation. | **DONE** | Fully implemented, migrated, and verified by 71 automated tests. |
+| **M4** | **Mobile/Offline & Notifications**: Read-only upcoming schedule cache, visible last-updated time, branch/business cache clearing, durable jobs, push/in-app notifications, deep links, retries. | **NEXT** | M3 complete. Expo dev build setup. |
+| **M5** | **Swaps, Attendance & Activity**: Same-branch swaps with version check, attendance history, scoped feed with 10k pagination tests. | QUEUED | M4 completion. |
 | **M5** | **Swaps, Attendance & Activity**: Same-branch swaps with version check, attendance history, scoped feed with 10k pagination tests. | QUEUED | M4 completion. |
 | **M6** | **Simulated Billing**: Server quotes, deterministic FX fixtures, Owner confirmation, proration (`PR-01`–`16`), immutable ledger, payment-intent state machine, idempotency, renewal/grace/restricted-mode tests. | QUEUED | M5 completion. Gate G-01 unverified provider remains simulated (`D-25`). |
 | **M7** | **Live Billing Integration (Conditional)**: Real Paystack/Flutterwave integration only if G-01 and FX-01 are formally closed; otherwise document simulator boundary. | BLOCKED | Gate G-01, Gate FX-01. |

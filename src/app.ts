@@ -3,6 +3,7 @@ import { requestIdMiddleware } from './middleware/request-id.ts';
 import { healthRouter } from './routes/health.ts';
 import { authRouter } from './routes/auth.ts';
 import { organizationRouter } from './routes/organization.ts';
+import { schedulingRouter } from './routes/scheduling.ts';
 import { sendError } from './utils/errors.ts';
 
 /**
@@ -21,6 +22,7 @@ export function createApp(): Application {
   app.use(healthRouter);
   app.use(authRouter);
   app.use(organizationRouter);
+  app.use(schedulingRouter);
 
   // 4. Catch-all 404 handler for undefined routes
   app.use((req: Request, res: Response) => {
