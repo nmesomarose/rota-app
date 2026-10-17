@@ -237,6 +237,44 @@ This living document captures technical discoveries, architectural trade-offs, a
 
 ---
 
+## Log Entry 22: Integer Arithmetic, Proration Invariants (PR-01..16), and Anchor-Preserving Billing Periods
+- **Date**: 2026-10-17
+- **Context**: Milestone M6 / Server-Authoritative Billing & Proration (`PRD 8.1..8.5`, `D-11`, `D-12`, `BILL-001`, `BILL-004`, `BILL-016`, `PR-01..16`)
+- **Discovery**:
+  Floating-point arithmetic in billing calculations leads to rounding divergence, accumulator errors, and discrepancies between quotes and ledger entries. Furthermore, handling mid-period reductions or downgrades with immediate credits creates complex balance tracking and refund abuse vectors.
+- **Architectural Solution**:
+  1. **Strict Integer Minor-Unit Arithmetic**: All monetary calculations operate in minor units (cents for USD, kobo for NGN). Proration charges use `floor((Δmonthly * remaining_days) / period_days)`.
+  2. **No Mid-Period Credits (`D-11`, `BR-004`)**: If `Δmonthly <= 0`, immediate charge is strictly 0. Reductions and downgrades take effect only at the end of the billing period upon renewal.
+  3. **Calendar Date Anchoring (`BILL-016`, `PR-15`)**: Period start and end dates follow the business's IANA time zone calendar days (`PR-14`). When a billing period starts on the 31st, non-31-day months (e.g. February 28, April 30) clamp to the month's final day while preserving `anchor_day = 31` for subsequent renewal periods.
+  4. Exhaustive automated unit tests verify all 16 proration vectors (`PR-01` to `PR-16`) passing with 100% precision.
+
+---
+
+## Log Entry 23: Immutable Financial Ledger via Engine Triggers & State Replay Reconstruction
+- **Date**: 2026-10-17
+- **Context**: Milestone M6 / Financial Ledger Integrity (`PRD 8.6`, `C-08`, `BR-010`, `AC-013`, `BILL-010`, `BILL-025`)
+- **Discovery**:
+  Application-level checks against modifying ledger entries are vulnerable to rogue queries, developer errors, or SQL injection. A regulatory-compliant financial ledger must guarantee immutability at the database engine level.
+- **Architectural Solution**:
+  1. Created table `ledger_entries` with monotonic `seq BIGSERIAL`, `(business_id, id)` composite primary key, and forced RLS.
+  2. Installed PostgreSQL trigger `trg_immutable_ledger` with `BEFORE UPDATE OR DELETE FOR EACH ROW EXECUTE FUNCTION prevent_ledger_mutation()`. Direct updates and deletes are blocked by the database engine with an explicit exception.
+  3. Corrections and refunds are recorded strictly as new rows (`type = 'reversal'`) with original minor amounts (`BILL-028`).
+  4. Replaying all ledger entries in sequence (`reconstructSubscriptionFromLedger`) deterministically reproduces current plan, seat count, and total lifetime paid balance (`BILL-025`, `AC-LED-01`).
+
+---
+
+## Log Entry 24: Deterministic FX Fixtures & Raw-Body Webhook Ingestion Boundary
+- **Date**: 2026-10-17
+- **Context**: Milestone M6 / FX Fixtures, Webhooks & Provider Simulation (`DR-01`, `D-25`, `AC-FX-01..06`, `AC-010`, `BILL-007`)
+- **Discovery**:
+  External gateways (Paystack/Flutterwave) and live FX sources have unverified merchant capabilities and network flakiness. Relying on live external APIs during core development introduces non-deterministic test failures. Conversely, naive mock gateways risk diverging from real security protocols.
+- **Architectural Solution**:
+  1. **Deterministic FX Fixtures (`cbn_indicative_fixture`)**: Bound quotes to explicit rate, source, timestamp, and 30-minute freshness threshold. Stale rates or outages reject quote creation with 503 (`AC-FX-03`). Client-supplied rates/amounts are strictly ignored (`AC-FX-02`).
+  2. **Raw-Body HMAC Verification (`BILL-007`)**: Express was configured with `verify: (req, _res, buf) => { req.rawBody = buf; }` to retain the exact byte sequence. HMAC-SHA256 signatures are verified using `crypto.timingSafeEqual` over the raw payload buffer before parsing.
+  3. **Control-Plane Inbox Deduplication**: `payment_events` table enforces a `UNIQUE(provider, provider_event_id)` constraint. Duplicate deliveries are acknowledged and ignored without re-executing entitlement grants.
+
+---
+
 ## Defense Quick Reference: Core Architectural Concepts for the Owner
 1. **Why Two Logical Shards?**
    Demonstrates multi-tenant database scaling architecture (horizontal partitioning) without requiring expensive distributed physical infrastructure. Sharding routing is deterministic: `sha256(business_id) % 2` guarantees stable, balanced routing.
@@ -248,6 +286,13 @@ This living document captures technical discoveries, architectural trade-offs, a
    Database connections in modern web servers are pooled (shared). A transaction-scoped setting ensures that tenant credentials exist only for the duration of a single SQL transaction and are never inherited by the next request using that connection.
 5. **Why Monotonic Shift Versioning for Swaps?**
    Prevents race conditions where a shift changes time while a swap is being negotiated. Storing snapshot versions ensures shifts are swapped exactly as intended or rejected cleanly if modified.
+6. **Why Server-Authoritative Proration & No Client-Side Math?**
+   Prevents clients from spoofing prices or miscalculating proration amounts. All quotes expire at the earlier of 15 minutes and the next local midnight, guaranteeing prices cannot change during payment.
+7. **Why Database Triggers for Ledger Immutability?**
+   Guarantees tamper-proof financial auditability at the PostgreSQL engine level. No user or application role can update or delete ledger rows, satisfying strict accounting and compliance standards.
+8. **Why Visibly Labelled Simulated Payments?**
+   Allows complete, end-to-end development and automated testing of subscription lifecycles, webhook signatures, idempotency, grace periods, and restricted mode without risking real funds or relying on external gateway account approval.
+
 
 
 

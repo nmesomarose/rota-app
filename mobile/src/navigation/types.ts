@@ -11,4 +11,5 @@ export type RootStackParamList = {
   Auth: undefined;
   BusinessSelect: undefined;
   Main: NavigatorScreenParams<MainTabParamList> | undefined;
+  Billing: undefined;
 };

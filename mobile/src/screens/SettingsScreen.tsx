@@ -94,6 +94,20 @@ export function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Subscription & Billing (Owner-Accessible) */}
+      <View style={styles.card}>
+        <Text style={styles.cardHeader}>Subscription & Entitlements</Text>
+        <Text style={styles.itemLabel}>Billing & Plan Tier</Text>
+        <Text style={styles.itemValue}>Manage subscription, proration quotes & ledger</Text>
+        <TouchableOpacity
+          style={styles.billingButton}
+          onPress={() => navigation.navigate('Billing')}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.billingButtonText}>Manage Subscription</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Sign Out Action (AC-AUTH-02, AC-OFF-01) */}
       <TouchableOpacity
         style={[styles.logoutButton, loggingOut && styles.buttonDisabled]}
@@ -166,6 +180,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   switchButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  billingButton: {
+    marginTop: 14,
+    backgroundColor: '#0D9488',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  billingButtonText: {
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 14,

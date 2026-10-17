@@ -135,8 +135,8 @@ export async function requireTenant(req: Request, res: Response, next: NextFunct
   const userId = req.user.id;
 
   try {
-    // Authoritatively check membership status and role from tenant shard (FR-RBAC-006)
-    const membership = await withTenantContext(businessId, async (client) => {
+    // Authoritatively check membership status, role, and subscription status from tenant shard (FR-RBAC-006, BILL-030)
+    const tenantData = await withTenantContext(businessId, async (client) => {
       const res = await client.query<{
         id: string;
         role: string;
@@ -149,9 +149,19 @@ export async function requireTenant(req: Request, res: Response, next: NextFunct
          WHERE business_id = $1 AND user_id = $2`,
         [businessId, userId]
       );
-      return res.rows[0] || null;
+
+      const subRes = await client.query<{ status: string }>(
+        'SELECT status FROM subscriptions WHERE business_id = $1',
+        [businessId]
+      );
+
+      return {
+        membership: res.rows[0] || null,
+        subStatus: subRes.rows[0]?.status || 'active',
+      };
     });
 
+    const membership = tenantData.membership;
     if (!membership || membership.status !== 'active') {
       sendError(
         req,
@@ -169,11 +179,35 @@ export async function requireTenant(req: Request, res: Response, next: NextFunct
     req.user.branchId = membership.branch_id;
     req.user.departmentId = membership.department_id;
 
+    // Check subscription restricted mode (BILL-030)
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+      const allowedRestrictedPaths = [
+        '/v1/billing/renew',
+        '/v1/billing/simulate-checkout',
+        '/v1/billing/webhook',
+        '/v1/billing/quotes/',
+      ];
+      const isAllowed = allowedRestrictedPaths.some((p) => req.originalUrl.includes(p));
+      if (!isAllowed && tenantData.subStatus === 'restricted') {
+        sendError(
+          req,
+          res,
+          403,
+          'SUBSCRIPTION_RESTRICTED',
+          'Action blocked: organization subscription is in restricted mode due to unpaid renewal. An Owner must renew the subscription to restore full functionality.'
+        );
+        return;
+      }
+    }
+
     next();
   } catch (_err) {
     sendError(req, res, 404, 'NOT_FOUND', 'Target business not found or access denied');
   }
 }
+
+export const authenticateToken = requireAuth;
+export const requireBusinessMembership = requireTenant;
 
 /**
  * Restricts access to specific roles.

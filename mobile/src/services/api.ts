@@ -385,4 +385,42 @@ export const api = {
       });
     },
   },
+
+  billing: {
+    getSubscription: async () =>
+      apiRequest<{ data: any }>('/v1/billing/subscription', { method: 'GET' }),
+
+    createQuote: async (data: { targetPlan?: string; targetSeats?: number; currency?: string }) =>
+      apiRequest<{ data: any }>('/v1/billing/quotes', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    confirmQuote: async (quoteId: string, idempotencyKey: string) =>
+      apiRequest<{ data: any }>(`/v1/billing/quotes/${quoteId}/confirm`, {
+        method: 'POST',
+        headers: { 'idempotency-key': idempotencyKey },
+        body: JSON.stringify({ idempotencyKey }),
+      }),
+
+    simulateCheckout: async (data: { providerReference: string; outcome?: 'success' | 'failure' }) =>
+      apiRequest<{ data: any }>('/v1/billing/simulate-checkout', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    scheduleDowngrade: async (data: { targetPlan?: string; targetSeats?: number }) =>
+      apiRequest<{ data: any }>('/v1/billing/schedule-downgrade', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    cancelScheduledDowngrade: async () =>
+      apiRequest<{ data: any }>('/v1/billing/schedule-downgrade', {
+        method: 'DELETE',
+      }),
+
+    getLedger: async () =>
+      apiRequest<{ data: any[] }>('/v1/billing/ledger', { method: 'GET' }),
+  },
 };

@@ -8,6 +8,7 @@ import { notificationsRouter } from './routes/notifications.ts';
 import { swapsRouter } from './routes/swaps.ts';
 import { attendanceRouter } from './routes/attendance.ts';
 import { activityRouter } from './routes/activity.ts';
+import { billingRouter } from './routes/billing.ts';
 import { sendError } from './utils/errors.ts';
 
 /**
@@ -19,8 +20,14 @@ export function createApp(): Application {
   // 1. Request ID injection (FR-OPS-001, AC-OPS-01)
   app.use(requestIdMiddleware);
 
-  // 2. Body parsing
-  app.use(express.json());
+  // 2. Body parsing with rawBody retention for webhook HMAC signature verification (BILL-007)
+  app.use(
+    express.json({
+      verify: (req: any, _res, buf) => {
+        req.rawBody = buf;
+      },
+    })
+  );
 
   // 3. Mount routers
   app.use(healthRouter);
@@ -31,6 +38,7 @@ export function createApp(): Application {
   app.use(swapsRouter);
   app.use(attendanceRouter);
   app.use(activityRouter);
+  app.use(billingRouter);
 
   // 4. Catch-all 404 handler for undefined routes
   app.use((req: Request, res: Response) => {

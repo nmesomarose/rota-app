@@ -1,17 +1,21 @@
 # Rota: Project State & Workstream Tracker
 
 ## 1. Project Status Summary
-- **Current Milestone**: **M5 — Shift Swaps, Attendance and Activity Feed** (VERIFIED & COMPLETE).
+- **Current Milestone**: **M6 — Simulated Billing and Subscription Lifecycle** (VERIFIED & COMPLETE).
 - **Implementation Status**:
   - Local PostgreSQL 16 environment verified (`rota-postgres` container).
-  - Schemas `rota_control`, `rota_shard_1`, and `rota_shard_2` provisioned with identical, symmetrical tenant plane tables.
+  - Schemas `rota_control`, `rota_shard_1`, and `rota_shard_2` provisioned with symmetrical tenant plane tables and control plane inbox.
   - Non-superuser application role `rota_app` provisioned without `SUPERUSER` or `BYPASSRLS`.
-  - Migration 005 tenant (`swap_requests`, `attendance_records`, `activity_events`) applied across both shards with forced RLS and composite foreign keys.
-  - Shift swaps implemented with optimistic concurrency, stale version invalidation (`FR-SWP-004`, `BR-003`, `AC-007`), same-department enforcement (`C-07`, `AC-SCH-05`), peer accept/reject (`FR-SWP-002`), manager approval (`FR-SWP-003`), and atomic assignment exchange.
-  - Attendance tracking implemented for published shifts with `present`, `late`, `absent` states (`FR-ATT-001`, `AC-SCH-07`), duplicate assignment protection (`409 DUPLICATE_ATTENDANCE`), manager-only permissions, and urgent manager inbox alerts on worker absence (`FR-ATT-002`).
-  - Scoped Activity Feed implemented with keyset cursor pagination (`FR-ACT-001`), server-side role filtering (`FR-ACT-005`, `AC-ACT-01`, `AC-ACT-02`), and high-volume test verifying zero duplicates and zero gaps across 10,000 seeded events (`AC-014`, `AC-ACT-03`).
-  - Mobile Expo integration: `FeedScreen.tsx` upgraded with cursor-paginated activity feed, infinite scroll, pull-to-refresh, loading/empty/error states, and inbox tabs; `TeamScreen.tsx` connected to swap requests with optimistic UI and rollback (`AC-SET-02`).
-  - Automated test suite passing: 99 tests across 22 suites in ~45s (including all 41 M1 tenancy tests, 21 M2 auth/switching tests, 9 M3 scheduling tests, 8 M4 mobile/notification tests, 9 M5 swap tests, 7 M5 attendance tests, and 4 M5 activity/10k pagination tests).
+  - Migration 004 control (`payment_events` unique on `(provider, provider_event_id)`) applied.
+  - Migration 006 tenant (`subscriptions` lifecycle extensions, `billing_quotes`, `payment_intents`, `ledger_entries`) applied across both shards with forced RLS and composite foreign keys.
+  - Database trigger `trg_immutable_ledger` strictly prevents any direct `UPDATE` or `DELETE` on financial ledger entries (`C-08`, `BR-010`, `AC-013`).
+  - Server-authoritative proration calculations implemented with integer arithmetic, passing all 16 proration test vectors `PR-01` through `PR-16` (`AC-009`).
+  - Deterministic FX rate fixtures (`cbn_indicative_fixture`) implemented with 30-minute freshness validation, rejecting stale rates or outages with 503 (`AC-FX-01`..`06`).
+  - Visibly labelled `SimulatedPaymentProvider` (`D-25`, `AC-BILL-01`) with raw-body HMAC-SHA256 signature verification (`AC-010`), durable inboxing, and deduplication (`BILL-007`).
+  - Subscription lifecycle implemented: `active`, `past_due` (7-day grace period), `restricted` mode (`BILL-030`, blocks shifts/swaps/attendance/memberships mutations, preserves schedule reads and Owner renewal), and recovery.
+  - Plan upgrades, scheduled downgrades, seat additions, seat reductions, and admission limit checks (`BILL-009`, `BILL-021`, `PR-12`, `PR-13`) implemented and tested.
+  - Mobile Expo integration: `BillingScreen.tsx` connected to backend billing endpoints with plan selector, currency toggle, extra seat counter, server quote generation, simulated checkout, and append-only ledger display.
+  - Automated test suite passing: 127 tests across 24 suites in ~50s (including 17 proration tests, 11 end-to-end billing lifecycle tests, 99 M1–M5 tests).
   - TypeScript typecheck passing cleanly across both backend (`tsc --noEmit`) and mobile (`tsc --noEmit`).
   - Expo Android bundle verification passing (`npx expo export -p android --no-bytecode` exiting code 0).
 - **PRD Version**: v0.3 (Draft, authoritative product decisions consolidated).
@@ -28,8 +32,8 @@
 | **M3** | **Scheduling Core**: Staffing requirements (wall-clock), shifts (UTC), conflict engine, reasoned overrides, draft/review/publish, rostered manager roles, branch-scoped schedules, shift versioning, stale swap invalidation foundation. | **DONE** | Fully implemented, migrated, and verified by 71 automated tests. |
 | **M4** | **Mobile/Offline & Notifications**: Read-only upcoming schedule cache, visible last-updated time, branch/business cache clearing, durable jobs, push/in-app notifications, deep links, retries. | **DONE** | Fully implemented, migrated, and verified by 79 automated tests. |
 | **M5** | **Swaps, Attendance & Activity**: Same-branch swaps with version check, attendance history, scoped feed with 10k pagination tests. | **DONE** | Fully implemented, migrated, and verified by 99 automated tests. |
-| **M6** | **Simulated Billing**: Server quotes, deterministic FX fixtures, Owner confirmation, proration (`PR-01`–`16`), immutable ledger, payment-intent state machine, idempotency, renewal/grace/restricted-mode tests. | **NEXT** | M5 complete. Gate G-01 unverified provider remains simulated (`D-25`). |
-| **M7** | **Live Billing Integration (Conditional)**: Real Paystack/Flutterwave integration only if G-01 and FX-01 are formally closed; otherwise document simulator boundary. | BLOCKED | Gate G-01, Gate FX-01. |
+| **M6** | **Simulated Billing**: Server quotes, deterministic FX fixtures, Owner confirmation, proration (`PR-01`–`16`), immutable ledger, payment-intent state machine, idempotency, renewal/grace/restricted-mode tests. | **DONE** | Fully implemented, migrated, and verified by 127 automated tests. |
+| **M7** | **Live Billing Integration (Conditional)**: Real Paystack/Flutterwave integration only if G-01 and FX-01 are formally closed; otherwise document simulator boundary. | **NEXT** | Gate G-01, Gate FX-01. |
 | **M8** | **Performance, Resilience & Release Evidence**: 200-VU load test before/after caching, `EXPLAIN ANALYZE`, pool exhaustion/failure drills, sharding report, privacy/security docs, demo. | QUEUED | M6/M7 completion. Gate G-03 (NDPA review). |
 
 ---
