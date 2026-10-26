@@ -113,11 +113,13 @@ export function ForgotPasswordScreen({ navigation, route }: Props) {
 
         {/* Brand Header */}
         <View style={styles.header}>
-          <Image
-            source={require('../../assets/icon.png')}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
+          <View style={styles.logoBadgeContainer}>
+            <Image
+              source={require('../../assets/icon.png')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+          </View>
           <Text style={styles.appTitle}>Reset Your Password</Text>
           <Text style={styles.appSubtitle}>
             Enter the email address registered with your Rota account to receive password reset instructions.
@@ -269,11 +271,26 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
       alignItems: 'center',
       marginBottom: spacing.xxl,
     },
-    logoImage: {
-      width: 68,
-      height: 68,
-      borderRadius: radii.lg,
+    logoBadgeContainer: {
+      width: 76,
+      height: 76,
+      borderRadius: 20,
+      backgroundColor: '#FFFFFF',
+      borderWidth: isDark ? 2 : 1,
+      borderColor: isDark ? colors.primaryTeal : colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: isDark ? colors.primaryTeal : colors.primaryNavy,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: isDark ? 0.35 : 0.1,
+      shadowRadius: 10,
+      elevation: 4,
       marginBottom: spacing.md,
+    },
+    logoImage: {
+      width: 64,
+      height: 64,
+      borderRadius: 14,
     },
     appTitle: {
       fontSize: typography.sizes.xxl,

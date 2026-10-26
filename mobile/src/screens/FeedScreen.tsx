@@ -249,12 +249,33 @@ export function FeedScreen() {
   const formatTime = (isoString: string) => {
     try {
       const d = new Date(isoString);
-      return d.toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
+      if (isNaN(d.getTime())) return isoString;
+
+      const now = new Date();
+      const isToday =
+        d.getDate() === now.getDate() &&
+        d.getMonth() === now.getMonth() &&
+        d.getFullYear() === now.getFullYear();
+
+      const timeStr = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+      if (isToday) {
+        return `Today, ${timeStr}`;
+      }
+
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const isYesterday =
+        d.getDate() === yesterday.getDate() &&
+        d.getMonth() === yesterday.getMonth() &&
+        d.getFullYear() === yesterday.getFullYear();
+
+      if (isYesterday) {
+        return `Yesterday, ${timeStr}`;
+      }
+
+      const monthStr = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+      return `${monthStr}, ${timeStr}`;
     } catch {
       return isoString;
     }
@@ -277,6 +298,107 @@ export function FeedScreen() {
     }
   };
 
+  const formatEventType = (type: string, fallback?: string): string => {
+    const raw = (type || fallback || '').trim();
+    const lower = raw.toLowerCase();
+
+    switch (lower) {
+      case 'schedule.shift_assigned':
+      case 'shift_assigned':
+        return 'Shift Assigned';
+      case 'schedule.published':
+      case 'schedule_published':
+        return 'Schedule Published';
+      case 'schedule.shift_updated':
+      case 'shift_updated':
+        return 'Shift Updated';
+      case 'schedule.shift_cancelled':
+      case 'shift_cancelled':
+        return 'Shift Cancelled';
+      case 'swap.requested':
+      case 'swap_requested':
+        return 'Shift Swap Requested';
+      case 'swap.peer_accepted':
+      case 'swap_peer_accepted':
+        return 'Swap Awaiting Approval';
+      case 'swap.peer_rejected':
+      case 'swap_peer_rejected':
+        return 'Swap Declined by Peer';
+      case 'swap.approved':
+      case 'swap_approved':
+        return 'Shift Swap Approved';
+      case 'swap.rejected':
+      case 'swap_rejected':
+        return 'Shift Swap Rejected';
+      case 'swap.cancelled':
+      case 'swap_cancelled':
+        return 'Shift Swap Cancelled';
+      case 'attendance.recorded':
+      case 'attendance_recorded':
+        return 'Attendance Logged';
+      case 'attendance.clock_in':
+      case 'clock_in':
+        return 'Clock In Recorded';
+      case 'attendance.clock_out':
+      case 'clock_out':
+        return 'Clock Out Recorded';
+      case 'membership.invited':
+      case 'member_invited':
+        return 'Team Invitation Sent';
+      case 'membership.role_changed':
+      case 'role_changed':
+        return 'Member Role Updated';
+      case 'membership.removed':
+      case 'member_removed':
+        return 'Member Removed';
+      case 'business.ownership_transferred':
+      case 'ownership_transferred':
+        return 'Ownership Transferred';
+      case 'billing.payment_succeeded':
+      case 'payment_succeeded':
+        return 'Subscription Paid';
+      case 'billing.subscription_updated':
+      case 'subscription_updated':
+        return 'Plan Updated';
+      case 'billing.invoice_created':
+      case 'invoice_created':
+        return 'Invoice Ready';
+      default: {
+        const stripped = raw.includes('.') ? raw.split('.').slice(1).join(' ') : raw;
+        const words = stripped.replace(/_/g, ' ').split(/\s+/).filter(Boolean);
+        return words.map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ') || 'Activity Event';
+      }
+    }
+  };
+
+  const getStatusBadgeStyle = (status: any) => {
+    const s = String(status || '').toLowerCase().trim();
+    if (s === 'approved' || s === 'completed' || s === 'active' || s === 'present') {
+      return { bg: colors.successLight, text: colors.successText, label: s.toUpperCase() };
+    }
+    if (s === 'pending' || s === 'awaiting' || s === 'late') {
+      return { bg: colors.warningLight, text: colors.warningText, label: s.toUpperCase() };
+    }
+    if (s === 'peer_accepted') {
+      return { bg: colors.lightTeal, text: colors.tealDark, label: 'AWAITING APPROVAL' };
+    }
+    if (s === 'peer_rejected' || s === 'rejected' || s === 'absent' || s === 'cancelled') {
+      return { bg: colors.errorLight, text: colors.errorText, label: s.toUpperCase() };
+    }
+    return { bg: colors.surfaceSelected, text: colors.textSecondary, label: s.toUpperCase() };
+  };
+
+  const formatCategoryBadge = (cat: string) => {
+    const raw = String(cat || '').toUpperCase();
+    if (raw === 'SCHEDULE') return 'SCHEDULE';
+    if (raw === 'SWAP') return 'SWAP';
+    if (raw === 'ATTENDANCE') return 'ATTENDANCE';
+    if (raw === 'BILLING') return 'BILLING';
+    if (raw === 'SECURITY') return 'SECURITY';
+    if (raw === 'MEMBERSHIP') return 'TEAM';
+    return raw.slice(0, 12);
+  };
+
   const renderActivityItem = ({ item }: { item: CachedActivityEvent }) => {
     const theme = getVisibilityTheme(item.visibility_class);
     const p = (item.payload || {}) as Record<string, any>;
@@ -295,22 +417,36 @@ export function FeedScreen() {
         typeLower.includes('shift') ||
         Boolean(p.shift_id || p.shiftId || p.start_time || p.startTime || p.start));
 
+    const isAttendance = !isSwap && !isShift && (visLower === 'attendance' || typeLower.includes('attendance'));
+    const isBilling = !isSwap && !isShift && (visLower === 'billing' || typeLower.includes('billing') || typeLower.includes('payment'));
+
     const formatClock = (val: any) => {
       if (!val) return '';
-      const str = String(val);
+      const str = String(val).trim();
       if (str.includes('T')) {
         try {
-          return new Date(str).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const d = new Date(str);
+          if (!isNaN(d.getTime())) {
+            return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+          }
         } catch {
-          return str;
+          // fallback
         }
+      }
+      const match = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+      if (match) {
+        let h = parseInt(match[1], 10);
+        const m = match[2];
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        return `${h}:${m} ${ampm}`;
       }
       return str;
     };
 
     const formatDate = (val: any) => {
       if (!val) return '';
-      const str = String(val);
+      const str = String(val).trim();
       try {
         const d = new Date(str);
         if (!isNaN(d.getTime())) {
@@ -322,65 +458,131 @@ export function FeedScreen() {
       return str.split('T')[0];
     };
 
+    const headline = formatEventType(item.type, item.visibility_class);
+    const statusStyle = p.status ? getStatusBadgeStyle(p.status) : null;
+    const shiftDate = formatDate(p.date || p.shift_date || p.shiftDate || p.start_time || item.created_at);
+    const startClock = formatClock(p.start_time || p.startTime || p.start);
+    const endClock = formatClock(p.end_time || p.endTime || p.end);
+
     return (
       <View style={styles.card}>
+        {/* Top Metadata Row: Badge + Status + Timestamp */}
         <View style={styles.cardHeader}>
-          <View style={styles.badgeRow}>
+          <View style={styles.badgeGroup}>
             <View style={[styles.visBadge, { backgroundColor: theme.bg }]}>
-              <Text style={[styles.visBadgeText, { color: theme.text }]}>
-                {item.visibility_class.toUpperCase()}
+              <Text style={[styles.visBadgeText, { color: theme.text }]} numberOfLines={1}>
+                {formatCategoryBadge(item.visibility_class)}
               </Text>
             </View>
-            <Text style={styles.typeText}>{item.type.replace(/_/g, ' ')}</Text>
+            {statusStyle && (
+              <View style={[styles.inlineStatusBadge, { backgroundColor: statusStyle.bg }]}>
+                <Text style={[styles.inlineStatusText, { color: statusStyle.text }]} numberOfLines={1}>
+                  {statusStyle.label}
+                </Text>
+              </View>
+            )}
           </View>
-          <Text style={styles.timeText}>{formatTime(item.created_at)}</Text>
+          <Text style={styles.timeText} numberOfLines={1}>{formatTime(item.created_at)}</Text>
         </View>
 
+        {/* Clear, Prominent Action Headline */}
+        <Text style={styles.eventHeadline} numberOfLines={2}>
+          {headline}
+        </Text>
+
+        {/* Structured Context Details */}
         <View style={styles.cardBody}>
           {isSwap ? (
             <View style={styles.eventBox}>
-              <View style={styles.eventRow}>
-                <Ionicons name="swap-horizontal" size={16} color={colors.primaryTeal} style={{ marginRight: 6 }} />
-                <Text style={styles.eventTitle}>Shift Swap</Text>
-                {p.status && (
-                  <View style={styles.inlineStatusBadge}>
-                    <Text style={styles.inlineStatusText}>{String(p.status).toUpperCase()}</Text>
+              {(p.requester_name || p.requester || p.counterpart_name || p.counterpart) && (
+                <View style={styles.membersRow}>
+                  <Ionicons name="people-outline" size={14} color={colors.primaryTeal} style={{ marginRight: 6 }} />
+                  <Text style={styles.eventMembers} numberOfLines={1} ellipsizeMode="tail">
+                    {p.requester_name || p.requester || 'User'} ⇄ {p.counterpart_name || p.counterpart || 'Colleague'}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.metaRow}>
+                {Boolean(shiftDate) && (
+                  <View style={styles.metaItem}>
+                    <Ionicons name="calendar-outline" size={13} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                    <Text style={styles.metaText}>{shiftDate}</Text>
                   </View>
                 )}
+                {Boolean(startClock && endClock) && (
+                  <>
+                    <Text style={styles.metaDivider}>•</Text>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="time-outline" size={13} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                      <Text style={styles.metaText}>{startClock} - {endClock}</Text>
+                    </View>
+                  </>
+                )}
               </View>
-              {(p.requester_name || p.requester || p.counterpart_name || p.counterpart) && (
-                <Text style={styles.eventMembers}>
-                  {p.requester_name || p.requester || 'User'} ⇄ {p.counterpart_name || p.counterpart || 'Staff'}
-                </Text>
-              )}
-              <Text style={styles.eventTimeInfo}>
-                📅 Date: {formatDate(p.date || p.shift_date || p.shiftDate || p.start_time || item.created_at)}
-              </Text>
-              {(p.start_time || p.startTime || p.start) && (
-                <Text style={styles.eventTimeInfo}>
-                  ⏰ Starts: {formatClock(p.start_time || p.startTime || p.start)} • Ends: {formatClock(p.end_time || p.endTime || p.end)}
-                </Text>
+              {Boolean(p.notes) && (
+                <Text style={styles.eventNotes} numberOfLines={2}>"{p.notes}"</Text>
               )}
             </View>
           ) : isShift ? (
             <View style={styles.eventBox}>
-              <View style={styles.eventRow}>
-                <Ionicons name="calendar-outline" size={16} color={colors.primaryNavy} style={{ marginRight: 6 }} />
-                <Text style={styles.eventTitle}>
+              <View style={styles.eventSubHeader}>
+                <Ionicons name="calendar-outline" size={14} color={colors.primaryNavy} style={{ marginRight: 6 }} />
+                <Text style={styles.eventSubTitle} numberOfLines={1} ellipsizeMode="tail">
                   {p.department || p.department_name || p.role ? `${p.department || p.department_name || p.role} Shift` : 'Scheduled Shift'}
                 </Text>
               </View>
-              <Text style={styles.eventTimeInfo}>
-                📅 Date: {formatDate(p.date || p.shift_date || p.shiftDate || p.start_time || item.created_at)}
-              </Text>
-              <Text style={styles.eventTimeInfo}>
-                ⏰ Starts: {formatClock(p.start_time || p.startTime || p.start) || 'Scheduled'} • Ends: {formatClock(p.end_time || p.endTime || p.end) || 'Scheduled'}
-              </Text>
-              {p.notes && <Text style={styles.eventNotes}>Notes: {p.notes}</Text>}
+              <View style={styles.metaRow}>
+                {Boolean(shiftDate) && (
+                  <View style={styles.metaItem}>
+                    <Ionicons name="calendar-outline" size={13} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                    <Text style={styles.metaText}>{shiftDate}</Text>
+                  </View>
+                )}
+                {Boolean(startClock || endClock) && (
+                  <>
+                    <Text style={styles.metaDivider}>•</Text>
+                    <View style={styles.metaItem}>
+                      <Ionicons name="time-outline" size={13} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                      <Text style={styles.metaText}>
+                        {startClock || 'Scheduled'} - {endClock || 'Scheduled'}
+                      </Text>
+                    </View>
+                  </>
+                )}
+              </View>
+              {Boolean(p.notes) && (
+                <Text style={styles.eventNotes} numberOfLines={2}>"{p.notes}"</Text>
+              )}
+            </View>
+          ) : isAttendance ? (
+            <View style={styles.eventBox}>
+              <View style={styles.eventSubHeader}>
+                <Ionicons name="time-outline" size={14} color={colors.tealDark} style={{ marginRight: 6 }} />
+                <Text style={styles.eventSubTitle} numberOfLines={1}>
+                  Status: {p.state ? String(p.state).toUpperCase() : 'Logged'}
+                </Text>
+              </View>
+              {Boolean(p.note) && (
+                <Text style={styles.eventNotes} numberOfLines={2}>"{p.note}"</Text>
+              )}
+            </View>
+          ) : isBilling ? (
+            <View style={styles.eventBox}>
+              <View style={styles.eventSubHeader}>
+                <Ionicons name="card-outline" size={14} color={colors.primaryNavy} style={{ marginRight: 6 }} />
+                <Text style={styles.eventSubTitle} numberOfLines={1}>
+                  {p.plan ? `${String(p.plan).toUpperCase()} Plan` : 'Billing Update'}
+                </Text>
+              </View>
+              {Boolean(p.message || p.description) && (
+                <Text style={styles.eventSimpleSummary} numberOfLines={4}>
+                  {p.message || p.description}
+                </Text>
+              )}
             </View>
           ) : (
-            <Text style={styles.eventSimpleSummary}>
-              {p.description || p.message || p.title || item.type.replace(/_/g, ' ')}
+            <Text style={styles.eventSimpleSummary} numberOfLines={4}>
+              {p.description || p.message || p.title || headline}
             </Text>
           )}
         </View>
@@ -395,18 +597,20 @@ export function FeedScreen() {
       activeOpacity={0.7}
     >
       <View style={styles.cardHeader}>
-        <View style={styles.badgeRow}>
+        <View style={styles.badgeGroup}>
           {item.urgent && (
             <View style={styles.urgentBadge}>
               <Text style={styles.urgentBadgeText}>URGENT</Text>
             </View>
           )}
-          <Text style={styles.categoryBadge}>{item.category.toUpperCase()}</Text>
+          <View style={styles.inboxCatBadge}>
+            <Text style={styles.inboxCatText}>{formatCategoryBadge(item.category)}</Text>
+          </View>
         </View>
-        <Text style={styles.timeText}>{formatTime(item.created_at)}</Text>
+        <Text style={styles.timeText} numberOfLines={1}>{formatTime(item.created_at)}</Text>
       </View>
 
-      <Text style={styles.itemTitle}>{item.title}</Text>
+      <Text style={styles.itemTitle} numberOfLines={2}>{item.title}</Text>
       <Text style={styles.itemBody}>{item.body}</Text>
 
       {!item.read_at && (
@@ -670,33 +874,52 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  badgeRow: {
+  badgeGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flexShrink: 1,
+    marginRight: 8,
   },
   visBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 5,
+    alignSelf: 'flex-start',
   },
   visBadgeText: {
     fontSize: 10,
     fontWeight: '700',
+    letterSpacing: 0.4,
   },
-  typeText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textPrimary,
+  inlineStatusBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  inlineStatusText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
   timeText: {
     fontSize: 11,
+    fontWeight: '500',
     color: colors.textSecondary,
+    flexShrink: 0,
+  },
+  eventHeadline: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    lineHeight: 20,
+    marginBottom: 8,
+    flexShrink: 1,
   },
   cardBody: {
-    marginTop: 4,
+    marginTop: 0,
   },
   eventBox: {
     backgroundColor: colors.surfaceSubtle,
@@ -704,51 +927,63 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     padding: 10,
     borderWidth: 1,
     borderColor: colors.border,
+    gap: 4,
   },
-  eventRow: {
+  eventSubHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  eventTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+  eventSubTitle: {
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.textPrimary,
+    flexShrink: 1,
   },
-  inlineStatusBadge: {
-    marginLeft: 8,
-    backgroundColor: isDark ? '#0F766E33' : colors.lightTeal,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
   },
-  inlineStatusText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: isDark ? '#2DD4BF' : colors.tealDark,
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metaText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  metaDivider: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginHorizontal: 1,
   },
   eventMembers: {
     fontSize: 13,
     fontWeight: '600',
     color: colors.primaryTeal,
-    marginBottom: 4,
+    flexShrink: 1,
   },
-  eventTimeInfo: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 18,
-    marginTop: 2,
+  membersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 3,
   },
   eventNotes: {
     fontSize: 12,
     color: colors.textMuted,
     fontStyle: 'italic',
-    marginTop: 4,
+    marginTop: 3,
+    lineHeight: 16,
   },
   eventSimpleSummary: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    lineHeight: 20,
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    flexShrink: 1,
   },
   payloadSummary: {
     fontSize: 12,
@@ -769,11 +1004,14 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: 4,
+    lineHeight: 20,
+    flexShrink: 1,
   },
   itemBody: {
     fontSize: 13,
-    color: colors.textPrimary,
+    color: colors.textSecondary,
     lineHeight: 18,
+    flexShrink: 1,
   },
   urgentBadge: {
     backgroundColor: colors.error,
@@ -786,10 +1024,17 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     fontSize: 10,
     fontWeight: '700',
   },
-  categoryBadge: {
-    fontSize: 11,
-    color: colors.primaryTeal,
+  inboxCatBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    backgroundColor: isDark ? '#0F766E25' : colors.lightTeal,
+  },
+  inboxCatText: {
+    fontSize: 10,
     fontWeight: '700',
+    color: isDark ? '#2DD4BF' : colors.tealDark,
+    letterSpacing: 0.3,
   },
   unreadIndicator: {
     flexDirection: 'row',

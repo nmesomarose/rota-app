@@ -510,11 +510,13 @@ export function LoginScreen({ navigation, route }: Props) {
             accessibilityRole="button"
             accessibilityHint="Triple tap for backend connection settings"
           >
-            <Image
-              source={require('../../assets/icon.png')}
-              style={styles.logoImage}
-              resizeMode="contain"
-            />
+            <View style={styles.logoBadgeContainer}>
+              <Image
+                source={require('../../assets/icon.png')}
+                style={styles.logoImage}
+                resizeMode="contain"
+              />
+            </View>
           </Pressable>
           <Text style={styles.appTitle}>{isSignUp ? 'Create Account' : 'Sign In to Rota'}</Text>
           <Text style={styles.appSubtitle}>
@@ -1020,22 +1022,32 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
       borderRadius: 8,
     },
     backToSignInText: {
-      color: colors.primaryNavy,
+      color: colors.primaryTeal,
       fontSize: 13,
       fontWeight: '600',
     },
     logoPressable: {
       marginBottom: 14,
-      shadowColor: colors.primaryNavy,
+    },
+    logoBadgeContainer: {
+      width: 76,
+      height: 76,
+      borderRadius: 20,
+      backgroundColor: '#FFFFFF',
+      borderWidth: isDark ? 2 : 1,
+      borderColor: isDark ? colors.primaryTeal : colors.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: isDark ? colors.primaryTeal : colors.primaryNavy,
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
+      shadowOpacity: isDark ? 0.35 : 0.1,
       shadowRadius: 10,
       elevation: 4,
     },
     logoImage: {
-      width: 68,
-      height: 68,
-      borderRadius: 16,
+      width: 64,
+      height: 64,
+      borderRadius: 14,
     },
     logoBadgeText: {
       color: colors.lightTeal,
@@ -1046,7 +1058,7 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
     appTitle: {
       fontSize: 30,
       fontWeight: '800',
-      color: colors.primaryNavy,
+      color: colors.textPrimary,
       letterSpacing: -0.5,
     },
     appSubtitle: {

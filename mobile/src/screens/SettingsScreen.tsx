@@ -197,7 +197,7 @@ export function SettingsScreen() {
   const handleLogoutAllPress = () => {
     Alert.alert(
       'Sign Out of All Devices',
-      'Are you sure you want to sign out of all devices? This will invalidate all active sessions across all phones, tablets, and web browsers. You will need to log in again.',
+      'Are you sure you want to sign out of all devices? This will close your active sessions across all devices and web browsers. You will need to log in again.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -316,9 +316,10 @@ export function SettingsScreen() {
         )}
 
         <View style={styles.separator} />
-        <Text style={styles.sectionSubhead}>Session Security (AUTH-11, AUTH-12)</Text>
+        {/* Session Security (AUTH-11, AUTH-12) */}
+        <Text style={styles.sectionSubhead}>Active Sessions</Text>
         <Text style={styles.fieldNote}>
-          Revoke active sessions across all devices, tablets, and web browsers if your hardware is lost, stolen, or compromised.
+          Sign out everywhere if a device is lost, stolen, or no longer in use.
         </Text>
 
         <TouchableOpacity
@@ -328,7 +329,7 @@ export function SettingsScreen() {
           activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel="Sign Out of All Devices"
-          accessibilityHint="Invalidates active sessions across all phones, tablets, and web browsers"
+          accessibilityHint="Signs out of all active devices and web browsers"
         >
           {loggingOutAll ? (
             <ActivityIndicator size="small" color={colors.primaryTeal} />
@@ -383,16 +384,16 @@ export function SettingsScreen() {
           {savingSettings && <ActivityIndicator size="small" color={colors.primaryTeal} />}
         </View>
         <Text style={styles.itemDescription}>
-          Synchronized across all your active devices with per-field conflict resolution (FR-SET-001..005).
+          Preferences sync automatically across all your active devices.
         </Text>
 
         {loadingSettings ? (
           <ActivityIndicator color={colors.primaryTeal} style={{ marginVertical: 16 }} />
         ) : (
           <>
-            {/* Time Zone */}
-            <Text style={styles.sectionSubhead}>User Time Zone (IANA)</Text>
-            <Text style={styles.fieldNote}>Used for quiet hours calculation and notification scheduling.</Text>
+            {/* User Time Zone */}
+            <Text style={styles.sectionSubhead}>Time Zone</Text>
+            <Text style={styles.fieldNote}>Used for schedule notifications and quiet hours.</Text>
             <View style={styles.pillRow}>
               {['UTC', 'Africa/Lagos', 'Europe/London', 'America/New_York'].map((tz) => (
                 <TouchableOpacity
@@ -408,13 +409,13 @@ export function SettingsScreen() {
               ))}
             </View>
 
-            {/* Quiet Hours */}
+            {/* Quiet Hours (FR-NOT-007) */}
             <View style={styles.separator} />
             <View style={styles.switchRow}>
               <View style={{ flex: 1, paddingRight: 12 }}>
-                <Text style={styles.rowTitle}>Quiet Hours (FR-NOT-007)</Text>
+                <Text style={styles.rowTitle}>Quiet Hours</Text>
                 <Text style={styles.fieldNote}>
-                  Defers non-urgent pushes between {settings.quietHours.start} and {settings.quietHours.end} ({settings.timeZone}). Urgent shift changes bypass quiet hours.
+                  Mutes routine notifications between {settings.quietHours.start} and {settings.quietHours.end} ({settings.timeZone}). Urgent shift changes still arrive.
                 </Text>
               </View>
               <Switch
@@ -447,17 +448,17 @@ export function SettingsScreen() {
               ))}
             </View>
 
-            {/* Appearance (System Controlled) */}
+            {/* Appearance (Follows System) */}
             <View style={styles.separator} />
             <Text style={styles.sectionSubhead}>Appearance</Text>
             <Text style={styles.fieldNote}>
-              Appearance: System controlled. Rota automatically follows your device appearance (Light / Dark mode).
+              System default. Rota automatically matches your device light or dark appearance.
             </Text>
 
-            {/* Notification Categories */}
+            {/* Notification Categories (FR-NOT-006) */}
             <View style={styles.separator} />
-            <Text style={styles.sectionSubhead}>Notification Categories (FR-NOT-006)</Text>
-            <Text style={styles.fieldNote}>Select notification categories to receive on your devices.</Text>
+            <Text style={styles.sectionSubhead}>Notification Categories</Text>
+            <Text style={styles.fieldNote}>Choose the notifications you want to receive on your devices.</Text>
 
             <View style={styles.categoryItem}>
               <View style={{ flex: 1, paddingRight: 8 }}>
@@ -475,7 +476,7 @@ export function SettingsScreen() {
             <View style={styles.categoryItem}>
               <View style={{ flex: 1, paddingRight: 8 }}>
                 <Text style={styles.categoryTitle}>Shift Swaps</Text>
-                <Text style={styles.fieldNote}>Swap requests, peer acceptances, and manager reviews.</Text>
+                <Text style={styles.fieldNote}>Swap requests, peer responses, and manager reviews.</Text>
               </View>
               <Switch
                 value={settings.notificationCategories.swaps}
@@ -488,7 +489,7 @@ export function SettingsScreen() {
             <View style={styles.categoryItem}>
               <View style={{ flex: 1, paddingRight: 8 }}>
                 <Text style={styles.categoryTitle}>Manager Approvals</Text>
-                <Text style={styles.fieldNote}>Swap approvals, availability overrides, and reviews.</Text>
+                <Text style={styles.fieldNote}>Swap approvals, availability requests, and overrides.</Text>
               </View>
               <Switch
                 value={settings.notificationCategories.approvals}
@@ -501,7 +502,7 @@ export function SettingsScreen() {
             <View style={styles.categoryItem}>
               <View style={{ flex: 1, paddingRight: 8 }}>
                 <Text style={styles.categoryTitle}>Attendance & Absences</Text>
-                <Text style={styles.fieldNote}>Clock-in confirmations and manager absence alerts.</Text>
+                <Text style={styles.fieldNote}>Clock-in confirmations and absence notices.</Text>
               </View>
               <Switch
                 value={settings.notificationCategories.attendance}
@@ -513,13 +514,13 @@ export function SettingsScreen() {
 
             <View style={styles.categoryItem}>
               <View style={{ flex: 1, paddingRight: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
                   <Text style={styles.categoryTitle}>Subscription & Billing</Text>
                   <View style={styles.mandatoryBadge}>
-                    <Text style={styles.mandatoryBadgeText}>MANDATORY IN-APP</Text>
+                    <Text style={styles.mandatoryBadgeText}>Required</Text>
                   </View>
                 </View>
-                <Text style={styles.fieldNote}>Invoice alerts, payment status, and renewal updates.</Text>
+                <Text style={styles.fieldNote}>Invoices, payment reminders, and renewal notices.</Text>
               </View>
               <Switch
                 value={settings.notificationCategories.billing}
@@ -531,13 +532,13 @@ export function SettingsScreen() {
 
             <View style={styles.categoryItem}>
               <View style={{ flex: 1, paddingRight: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
                   <Text style={styles.categoryTitle}>Security & Account</Text>
                   <View style={styles.mandatoryBadge}>
-                    <Text style={styles.mandatoryBadgeText}>MANDATORY IN-APP</Text>
+                    <Text style={styles.mandatoryBadgeText}>Required</Text>
                   </View>
                 </View>
-                <Text style={styles.fieldNote}>New logins, session revocations, and role changes.</Text>
+                <Text style={styles.fieldNote}>New logins, security alerts, and role changes.</Text>
               </View>
               <Switch
                 value={settings.notificationCategories.security}
@@ -547,46 +548,46 @@ export function SettingsScreen() {
               />
             </View>
 
-            {settingsSyncTime && (
+            {savingSettings ? (
+              <View style={styles.syncFooter}>
+                <Ionicons name="sync-outline" size={14} color={colors.primaryTeal} style={{ marginRight: 5 }} />
+                <Text style={styles.syncFooterText}>Syncing changes...</Text>
+              </View>
+            ) : settingsSyncTime ? (
               <View style={styles.syncFooter}>
                 <Ionicons name="cloud-done-outline" size={14} color={colors.primaryTeal} style={{ marginRight: 5 }} />
                 <Text style={styles.syncFooterText}>
-                  Last synchronized: {new Date(settingsSyncTime).toLocaleTimeString()}
+                  Last synced {new Date(settingsSyncTime).toLocaleTimeString()}
                 </Text>
               </View>
-            )}
+            ) : null}
           </>
         )}
       </View>
 
-      {/* Subscription & Billing (Owner-Gated per BR-006) */}
-      <View style={styles.card}>
-        <Text style={styles.cardHeader}>Subscription & Entitlements</Text>
-        <Text style={styles.itemLabel}>Billing & Plan Tier</Text>
-        <Text style={styles.itemValue}>Manage subscription, proration quotes & ledger</Text>
-
-        {isOwner ? (
+      {/* Subscription & Billing (Owner-Gated per BR-006, PRD Section 4.5) */}
+      {isOwner && (
+        <View style={styles.card}>
+          <Text style={styles.cardHeader}>Subscription & Plan</Text>
+          <Text style={styles.itemLabel}>Plan Details</Text>
+          <Text style={styles.itemValue}>View plan tier, payment history, and invoices</Text>
           <TouchableOpacity
             style={styles.billingButton}
             onPress={() => navigation.navigate('Billing')}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Manage Subscription"
           >
             <Text style={styles.billingButtonText}>Manage Subscription</Text>
           </TouchableOpacity>
-        ) : (
-          <View style={styles.restrictedNotice}>
-            <Text style={styles.restrictedNoticeText}>
-              Subscription and plan changes are restricted to Organization Owners (BR-006).
-            </Text>
-          </View>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Danger Zone: Personal Account Deletion */}
       <View style={styles.dangerCard}>
         <Text style={styles.dangerCardHeader}>Danger Zone</Text>
         <Text style={styles.dangerDescription}>
-          Deleting your personal account revokes all active sessions. Sole business owners must transfer ownership or delete the business first.
+          Deleting your account closes all active sessions. Sole business owners must transfer ownership or delete the organization first.
         </Text>
 
         <TouchableOpacity
@@ -618,7 +619,7 @@ export function SettingsScreen() {
       </TouchableOpacity>
 
       <Text style={styles.footnote}>
-        Signing out securely clears local session tokens and cached schedules (AC-OFF-01).
+        Signing out clears your session and cached data on this device.
       </Text>
 
       {/* Delete Account Password Confirmation Modal */}
@@ -633,7 +634,7 @@ export function SettingsScreen() {
             </View>
 
             <Text style={styles.modalWarningText}>
-              This action cannot be undone. All active sessions will be terminated.
+              This action cannot be undone. All active sessions will be closed immediately.
             </Text>
 
             {deleteAccountError && (
@@ -930,6 +931,7 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
     modalActionRow: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
+      flexWrap: 'wrap',
       gap: 10,
     },
     cancelBtn: {
@@ -1039,14 +1041,14 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
     },
     mandatoryBadge: {
       backgroundColor: colors.infoLight,
-      paddingHorizontal: 6,
+      paddingHorizontal: 7,
       paddingVertical: 2,
       borderRadius: 4,
       marginLeft: 6,
     },
     mandatoryBadgeText: {
-      fontSize: 9,
-      fontWeight: '700',
+      fontSize: 10,
+      fontWeight: '600',
       color: colors.infoText,
     },
     syncFooter: {

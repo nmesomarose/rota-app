@@ -579,7 +579,7 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
     },
     orgHeader: {
       flexDirection: 'row',
-      alignItems: 'center',
+      alignItems: 'flex-start',
       marginBottom: spacing.md,
     },
     orgAvatar: {
@@ -622,17 +622,21 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
     detailRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'center',
+      alignItems: 'flex-start',
     },
     detailLabel: {
       fontSize: typography.sizes.sm,
       color: colors.textSecondary,
       fontWeight: typography.weights.medium,
+      flexShrink: 0,
     },
     detailValue: {
       fontSize: typography.sizes.sm,
       color: colors.textPrimary,
       fontWeight: typography.weights.semiBold,
+      flexShrink: 1,
+      textAlign: 'right',
+      marginLeft: 12,
     },
     authSection: {
       marginTop: spacing.sm,

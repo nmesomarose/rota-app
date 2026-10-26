@@ -257,7 +257,7 @@ export function BusinessSelectScreen({ navigation }: Props) {
                     accessibilityLabel={`Switch to ${item.businessName}`}
                   >
                     <View style={styles.cardHeader}>
-                      <Text style={styles.businessName} numberOfLines={1}>
+                      <Text style={styles.businessName} numberOfLines={2}>
                         {item.businessName}
                       </Text>
                       <View style={styles.roleBadge}>
@@ -519,7 +519,7 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 6,
   },
   businessName: {
@@ -536,6 +536,7 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
+    flexShrink: 0,
   },
   roleText: {
     color: isDark ? '#2DD4BF' : colors.tealDark,

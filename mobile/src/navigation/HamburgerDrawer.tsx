@@ -142,10 +142,10 @@ export function HamburgerDrawer({ visible, onClose, navigation, currentRoute }: 
                   </Text>
                 </View>
                 <View style={styles.profileText}>
-                  <Text style={styles.userName} numberOfLines={1}>
+                  <Text style={styles.userName} numberOfLines={2}>
                     {user?.name || user?.email?.split('@')[0] || 'Team Member'}
                   </Text>
-                  <Text style={styles.userEmail} numberOfLines={1}>
+                  <Text style={styles.userEmail}>
                     {user?.email || 'user@rotascheduling.com'}
                   </Text>
                 </View>
@@ -161,7 +161,7 @@ export function HamburgerDrawer({ visible, onClose, navigation, currentRoute }: 
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.businessName} numberOfLines={1}>
+                <Text style={styles.businessName} numberOfLines={2}>
                   {business?.name || 'No Business Selected'}
                 </Text>
               </View>
@@ -415,6 +415,8 @@ const createStyles = (colors: ColorTokens) =>
       fontSize: 12,
       color: colors.textSecondary,
       marginTop: 2,
+      lineHeight: 16,
+      flexWrap: 'wrap',
     },
     businessContext: {
       backgroundColor: colors.surface,
@@ -435,6 +437,8 @@ const createStyles = (colors: ColorTokens) =>
       fontWeight: '700',
       color: colors.textMuted,
       letterSpacing: 0.5,
+      flex: 1,
+      marginRight: 8,
     },
     roleBadge: {
       backgroundColor: colors.lightTeal,
@@ -443,6 +447,7 @@ const createStyles = (colors: ColorTokens) =>
       borderRadius: 6,
       paddingHorizontal: 6,
       paddingVertical: 2,
+      flexShrink: 0,
     },
     roleText: {
       fontSize: 10,

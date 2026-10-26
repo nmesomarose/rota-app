@@ -38,6 +38,7 @@ billingRouter.get(
   '/v1/billing/subscription',
   authenticateToken,
   requireBusinessMembership,
+  requireRole(['owner']),
   async (req: Request, res: Response): Promise<void> => {
     try {
       const businessId = req.user!.businessId!;

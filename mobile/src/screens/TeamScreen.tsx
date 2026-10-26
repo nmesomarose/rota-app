@@ -331,8 +331,8 @@ export function TeamScreen() {
             <Text style={styles.avatarText}>{initials || 'U'}</Text>
           </View>
           <View style={styles.memberInfo}>
-            <Text style={styles.memberName}>{item.name}</Text>
-            <Text style={styles.memberEmail}>{item.email}</Text>
+            <Text style={styles.memberName} numberOfLines={2}>{item.name}</Text>
+            <Text style={styles.memberEmail} numberOfLines={2}>{item.email}</Text>
           </View>
           <View style={[styles.roleBadge, { backgroundColor: badge.bg }]}>
             <Text style={[styles.roleBadgeText, { color: badge.color }]}>{badge.label}</Text>
@@ -787,7 +787,7 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
   },
   memberTopRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   avatarCircle: {
     width: 38,
@@ -807,21 +807,25 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
   },
   memberInfo: {
     flex: 1,
+    marginRight: 8,
   },
   memberName: {
     fontSize: 14,
     fontWeight: '700',
     color: colors.textPrimary,
+    lineHeight: 18,
   },
   memberEmail: {
     fontSize: 12,
     color: colors.textSecondary,
-    marginTop: 1,
+    marginTop: 2,
+    lineHeight: 16,
   },
   roleBadge: {
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    flexShrink: 0,
   },
   roleBadgeText: {
     fontSize: 11,
@@ -841,6 +845,7 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
   },
   memberActionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginTop: 10,
     paddingTop: 8,
@@ -909,6 +914,7 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
   },
   swapActionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     marginTop: 8,
   },
@@ -918,6 +924,7 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    minWidth: 80,
   },
   btnDisabled: {
     opacity: 0.6,

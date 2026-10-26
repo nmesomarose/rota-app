@@ -99,8 +99,8 @@ describe('Automatic System-Controlled Light/Dark Mode Regression Suite', () => {
 
     // Verify Appearance Info is displayed instead
     assert.ok(
-      content.includes('Appearance: System controlled'),
-      'SettingsScreen must display notice that Appearance is automatically system controlled'
+      content.includes('System default') || content.includes('Appearance: System controlled'),
+      'SettingsScreen must display notice that Appearance automatically follows system appearance'
     );
 
     // Verify theme hook usage

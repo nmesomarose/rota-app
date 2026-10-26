@@ -366,6 +366,31 @@ export function ScheduleScreen() {
     }
   };
 
+  const formatShiftDate = (isoString: string) => {
+    try {
+      const d = new Date(isoString);
+      return d.toLocaleDateString(undefined, {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return isoString;
+    }
+  };
+
+  const formatShiftTimeRange = (startIso: string, endIso: string) => {
+    try {
+      const d1 = new Date(startIso);
+      const d2 = new Date(endIso);
+      const t1 = d1.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      const t2 = d2.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      return `${t1} - ${t2}`;
+    } catch {
+      return `${startIso} - ${endIso}`;
+    }
+  };
+
   const formatDateTime = (isoString: string) => {
     try {
       const d = new Date(isoString);
@@ -373,7 +398,7 @@ export function ScheduleScreen() {
         weekday: 'short',
         month: 'short',
         day: 'numeric',
-        hour: '2-digit',
+        hour: 'numeric',
         minute: '2-digit',
       });
     } catch {
@@ -395,12 +420,19 @@ export function ScheduleScreen() {
     <View style={styles.container}>
       {/* Context status bar */}
       <View style={styles.statusBar}>
-        <Text style={styles.businessBadge}>{business?.name || 'Rota'}</Text>
-        <View style={styles.statusDivider} />
-        <View style={[styles.statusDot, isOffline ? styles.dotOffline : styles.dotOnline]} />
-        <Text style={styles.statusText}>
-          {isOffline ? 'Offline Cache' : 'Live Connected'} • Updated {formatLastUpdated(lastUpdated)}
-        </Text>
+        <View style={styles.statusTopRow}>
+          <Text style={styles.businessBadge}>{business?.name || 'Rota'}</Text>
+        </View>
+        <View style={styles.statusMetaRow}>
+          <View style={[styles.statusDot, isOffline ? styles.dotOffline : styles.dotOnline]} />
+          <Text style={styles.statusText}>
+            {isOffline ? 'Offline Cache' : 'Live Connected'}
+          </Text>
+          <Text style={styles.statusMetaDot}>•</Text>
+          <Text style={styles.statusText}>
+            Updated {formatLastUpdated(lastUpdated)}
+          </Text>
+        </View>
       </View>
 
       {isOffline && (
@@ -470,9 +502,11 @@ export function ScheduleScreen() {
             return (
               <View style={styles.shiftCard}>
                 <View style={styles.shiftHeader}>
-                  <Text style={styles.shiftTime}>
-                    {formatDateTime(item.startsAt)} – {formatDateTime(item.endsAt)}
-                  </Text>
+                  <View style={styles.shiftHeaderLeft}>
+                    <Text style={styles.shiftDateText} numberOfLines={1}>
+                      {formatShiftDate(item.startsAt)}
+                    </Text>
+                  </View>
                   <View
                     style={[
                       styles.statusBadge,
@@ -492,12 +526,19 @@ export function ScheduleScreen() {
                   </View>
                 </View>
 
+                <View style={styles.shiftTimeRow}>
+                  <Ionicons name="time-outline" size={14} color={colors.primaryTeal} style={{ marginRight: 6 }} />
+                  <Text style={styles.shiftTime}>
+                    {formatShiftTimeRange(item.startsAt, item.endsAt)}
+                  </Text>
+                </View>
+
                 <View style={styles.shiftDetails}>
                   {(() => {
                     const assignedNames = (item.assignedStaffIds || [])
                       .map((mId) => {
                         const found = members.find((m) => m.id === mId);
-                        return found ? `${found.name || found.email} (${found.role})` : null;
+                        return found ? `${found.name || found.email}` : null;
                       })
                       .filter(Boolean);
 
@@ -509,22 +550,27 @@ export function ScheduleScreen() {
                         : 'Unassigned';
 
                     return (
-                      <Text style={styles.detailText}>
-                        Staffing:{' '}
-                        <Text
-                          style={[
-                            styles.detailValue,
-                            hasAssignments && { color: colors.tealDark, fontWeight: '700' },
-                          ]}
-                        >
-                          {staffingLabel}
-                        </Text>
-                      </Text>
+                      <View style={styles.staffingWrapper}>
+                        <Ionicons name="people-outline" size={14} color={colors.textSecondary} style={{ marginRight: 6, marginTop: 1 }} />
+                        <View style={styles.staffingTextWrapper}>
+                          <Text style={styles.detailText}>
+                            Staffing:{' '}
+                            <Text
+                              style={[
+                                styles.detailValue,
+                                hasAssignments && { color: colors.tealDark, fontWeight: '700' },
+                              ]}
+                            >
+                              {staffingLabel}
+                            </Text>
+                          </Text>
+                        </View>
+                      </View>
                     );
                   })()}
-                  <Text style={styles.detailText}>
-                    Version: <Text style={styles.detailValue}>v{item.version}</Text>
-                  </Text>
+                  <View style={styles.shiftMetaFooter}>
+                    <Text style={styles.versionBadgeText}>v{item.version}</Text>
+                  </View>
                 </View>
 
                 <View style={styles.cardActionRow}>
@@ -820,7 +866,7 @@ export function ScheduleScreen() {
                 <View style={styles.swapSourceCard}>
                   <Text style={styles.swapSourceLabel}>YOUR SHIFT TO TRADE</Text>
                   <Text style={styles.swapSourceTime}>
-                    {formatDateTime(swapShift.startsAt)} – {formatDateTime(swapShift.endsAt)}
+                    {formatShiftDate(swapShift.startsAt)} ({formatShiftTimeRange(swapShift.startsAt, swapShift.endsAt)})
                   </Text>
                 </View>
               )}
@@ -895,12 +941,12 @@ export function ScheduleScreen() {
                         }}
                         activeOpacity={0.8}
                       >
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.swapCandidateTime, isSelected && styles.swapCandidateTimeSelected]}>
-                            {formatDateTime(otherShift.startsAt)} – {formatDateTime(otherShift.endsAt)}
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <Text style={[styles.swapCandidateTime, isSelected && styles.swapCandidateTimeSelected]} numberOfLines={2}>
+                            {formatShiftDate(otherShift.startsAt)} ({formatShiftTimeRange(otherShift.startsAt, otherShift.endsAt)})
                           </Text>
-                          <Text style={styles.swapCandidateMember}>
-                            Assigned to: {assignedMember ? `${assignedMember.name || assignedMember.email} (${assignedMember.role})` : 'Unassigned'}
+                          <Text style={styles.swapCandidateMember} numberOfLines={2}>
+                            Assigned to: {assignedMember ? `${assignedMember.name || assignedMember.email}` : 'Unassigned'}
                           </Text>
                         </View>
                         <Ionicons
@@ -966,32 +1012,37 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     padding: 16,
   },
   statusBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: colors.surface,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: 10,
+    gap: 4,
+  },
+  statusTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
   },
   businessBadge: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.textPrimary,
+    flex: 1,
+    flexWrap: 'wrap',
   },
-  statusDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: colors.borderSubtle,
-    marginHorizontal: 8,
+  statusMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
   },
   dotOnline: {
     backgroundColor: colors.success,
@@ -1003,6 +1054,10 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     fontSize: 11,
     color: colors.textSecondary,
     fontWeight: '500',
+  },
+  statusMetaDot: {
+    fontSize: 10,
+    color: colors.textMuted,
   },
   offlineBanner: {
     flexDirection: 'row',
@@ -1083,18 +1138,32 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 6,
   },
-  shiftTime: {
+  shiftHeaderLeft: {
+    flex: 1,
+    marginRight: 8,
+  },
+  shiftDateText: {
     fontSize: 14,
     fontWeight: '700',
     color: colors.textPrimary,
-    flex: 1,
+  },
+  shiftTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  shiftTime: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
   statusBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+    flexShrink: 0,
   },
   badgePublished: {
     backgroundColor: isDark ? '#064E3B33' : '#ECFDF5',
@@ -1113,15 +1182,39 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     color: colors.textSecondary,
   },
   shiftDetails: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: colors.borderSubtle,
   },
+  staffingWrapper: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+  },
+  staffingTextWrapper: {
+    flex: 1,
+  },
+  shiftMetaFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  versionBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textMuted,
+    backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
+  },
   detailText: {
     fontSize: 12,
     color: colors.textSecondary,
+    lineHeight: 18,
   },
   detailValue: {
     fontWeight: '600',
@@ -1129,6 +1222,7 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
   },
   cardActionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginTop: 10,
     paddingTop: 10,
@@ -1484,6 +1578,7 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 7,
+    maxWidth: '100%',
   },
   colleagueBadgeSelected: {
     backgroundColor: isDark ? '#0F766E33' : colors.lightTeal,
@@ -1493,6 +1588,7 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     fontSize: 12,
     fontWeight: '500',
     color: colors.textSecondary,
+    flexShrink: 1,
   },
   colleagueBadgeTextSelected: {
     color: isDark ? '#2DD4BF' : colors.tealDark,

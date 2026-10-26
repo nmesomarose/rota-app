@@ -22,7 +22,7 @@ import { evaluateBillingQuote } from '../services/billing-helpers.ts';
 import { typography, spacing, radii, shadows, type ColorTokens } from '../theme/tokens.ts';
 import { useTheme } from '../theme/ThemeContext.tsx';
 
-export function BillingScreen() {
+export function BillingScreen({ navigation }: any) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
@@ -97,20 +97,24 @@ export function BillingScreen() {
       const biz = await getActiveBusiness();
       setBusiness(biz);
 
+      // Enforce owner authorization guard: non-owners cannot query subscription endpoints (PRD 4.5)
+      if (biz?.role?.toLowerCase() !== 'owner') {
+        setLoading(false);
+        return;
+      }
+
       const subRes = await api.billing.getSubscription();
       setSubscription(subRes.data);
       if (subRes.data?.billingCurrency) {
         setSelectedCurrency(subRes.data.billingCurrency as 'USD' | 'NGN');
       }
 
-      if (biz?.role?.toLowerCase() === 'owner') {
-        const [ledgerRes, historyRes] = await Promise.all([
-          api.billing.getLedger().catch(() => ({ data: [] })),
-          api.billing.getHistory().catch(() => ({ data: [] })),
-        ]);
-        setLedger(ledgerRes.data || []);
-        setPaymentHistory(historyRes.data || []);
-      }
+      const [ledgerRes, historyRes] = await Promise.all([
+        api.billing.getLedger().catch(() => ({ data: [] })),
+        api.billing.getHistory().catch(() => ({ data: [] })),
+      ]);
+      setLedger(ledgerRes.data || []);
+      setPaymentHistory(historyRes.data || []);
     } catch (err: any) {
       Alert.alert('Billing Error', err.message || 'Failed to load subscription details');
     } finally {
@@ -310,6 +314,32 @@ export function BillingScreen() {
   }
 
   const isOwner = business?.role?.toLowerCase() === 'owner';
+
+  if (!isOwner) {
+    return (
+      <View style={styles.restrictedContainer}>
+        <View style={styles.restrictedCard}>
+          <View style={styles.restrictedIconBadge}>
+            <Ionicons name="shield-outline" size={40} color={colors.primaryTeal} />
+          </View>
+          <Text style={styles.restrictedTitle}>Access Restricted</Text>
+          <Text style={styles.restrictedMessage}>
+            Subscription management, plan tiers, quotes, and payment controls are restricted to Organization Owners (PRD Section 4.5).
+          </Text>
+          <TouchableOpacity
+            style={styles.returnButton}
+            onPress={() => (navigation?.canGoBack?.() ? navigation.goBack() : navigation?.navigate('Main', { screen: 'Schedule' }))}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Return to schedule"
+          >
+            <Ionicons name="arrow-back-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={styles.returnButtonText}>Return to Schedule</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -988,23 +1018,30 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 9,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSubtle,
+    gap: 8,
   },
   infoLabel: {
     color: colors.textSecondary,
     fontSize: 14,
+    flexShrink: 0,
   },
   infoValue: {
     color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '600',
+    flexShrink: 1,
+    textAlign: 'right',
   },
   infoValueHighlight: {
     color: colors.primaryTeal,
     fontSize: 15,
     fontWeight: '700',
+    flexShrink: 1,
+    textAlign: 'right',
   },
   scheduledBanner: {
     marginTop: 12,
@@ -1615,6 +1652,66 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     color: colors.errorText,
     fontSize: 11,
     fontWeight: '700',
+  },
+  restrictedContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  restrictedCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDark ? 0.3 : 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+    maxWidth: 380,
+    width: '100%',
+  },
+  restrictedIconBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: isDark ? '#0F766E25' : colors.lightTeal,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  restrictedTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  restrictedMessage: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  returnButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryTeal,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    width: '100%',
+  },
+  returnButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   });
 }

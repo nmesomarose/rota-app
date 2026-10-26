@@ -206,6 +206,7 @@ const buttonStyles = StyleSheet.create({
   text: {
     fontWeight: typography.weights.semiBold,
     textAlign: 'center',
+    flexShrink: 1,
   },
   disabled: {
     opacity: 0.5,
@@ -675,7 +676,8 @@ const emptyStyles = StyleSheet.create({
     fontSize: typography.sizes.sm,
     textAlign: 'center',
     lineHeight: 18,
-    maxWidth: 280,
+    maxWidth: '100%',
+    paddingHorizontal: spacing.sm,
   },
   action: {
     marginTop: spacing.lg,

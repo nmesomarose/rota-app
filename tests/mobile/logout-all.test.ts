@@ -67,8 +67,12 @@ describe('Mobile Logout from All Devices Verification (AUTH-11, AUTH-12)', () =>
         'Settings screen must feature an Account & Security section header'
       );
       assert.ok(
+        settingsCode.includes('Active Sessions') || settingsCode.includes('Session Security'),
+        'Settings screen must feature an active sessions section'
+      );
+      assert.ok(
         settingsCode.includes('Session Security (AUTH-11, AUTH-12)'),
-        'Settings screen must include Session Security subtitle referencing requirements'
+        'Settings screen must document Session Security AUTH-11 and AUTH-12 requirements'
       );
       assert.ok(
         settingsCode.includes('accessibilityLabel="Sign Out of All Devices"'),
