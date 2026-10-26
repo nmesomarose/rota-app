@@ -1,0 +1,35 @@
+{
+  "cli": {
+    "version": ">= 25.1.1",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://172.20.10.13:3000",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "22113937943-h3otgsmih0kl8gh69sk0ht63hui54sov.apps.googleusercontent.com"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://172.20.10.13:3000",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "22113937943-h3otgsmih0kl8gh69sk0ht63hui54sov.apps.googleusercontent.com"
+      }
+    },
+    "production": {
+      "autoIncrement": true
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

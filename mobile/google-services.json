@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "22113937943",
+    "project_id": "rota-app-be35a",
+    "storage_bucket": "rota-app-be35a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:22113937943:android:a5244ed7db56821d220a52",
+        "android_client_info": {
+          "package_name": "com.rota.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "22113937943-512qj2he9l5p3iolpbplgmr3ia0r0p5q.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rota.app",
+            "certificate_hash": "0274fe00f89574053d4590ea8b231ee3855160bb"
+          }
+        },
+        {
+          "client_id": "22113937943-h3otgsmih0kl8gh69sk0ht63hui54sov.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD_8IJY1qi69325wlGg7MH7WdxKOylUu7Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "22113937943-h3otgsmih0kl8gh69sk0ht63hui54sov.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

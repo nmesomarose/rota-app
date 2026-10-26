@@ -2,12 +2,13 @@ import { withTenantContext } from '../db/tenant-context.ts';
 import { localToUtc, isValidTimeZone } from './timezone-service.ts';
 import { detectAssignmentConflicts, type ShiftConflictResult } from './conflict-service.ts';
 import { notifyPublishedShifts, notifyShiftChange } from './notification-service.ts';
+import { emitActivityEvent } from './activity-service.ts';
 import { cacheService } from './cache-service.ts';
 import { AppError } from '../utils/errors.ts';
 
 export interface CreateShiftInput {
-  branchId: string;
-  departmentId: string;
+  branchId?: string | null;
+  departmentId?: string | null;
   startsAt: string; // ISO UTC string
   endsAt: string;   // ISO UTC string
   timeZone?: string;
@@ -72,11 +73,34 @@ export async function createShift(
       throw new AppError(400, 'VALIDATION_ERROR', `Invalid IANA time zone '${timeZone}'`);
     }
 
+    let branchId = input.branchId;
+    let departmentId = input.departmentId;
+
+    if (!branchId || branchId.startsWith('00000000')) {
+      const bRes = await client.query<{ id: string }>(
+        'SELECT id FROM branches WHERE business_id = $1 ORDER BY created_at ASC LIMIT 1',
+        [businessId]
+      );
+      branchId = bRes.rows[0]?.id;
+    }
+
+    if (!departmentId || departmentId.startsWith('00000000')) {
+      const dRes = await client.query<{ id: string }>(
+        'SELECT id FROM departments WHERE business_id = $1 AND ($2::uuid IS NULL OR branch_id = $2) ORDER BY created_at ASC LIMIT 1',
+        [businessId, branchId || null]
+      );
+      departmentId = dRes.rows[0]?.id;
+    }
+
+    if (!branchId || !departmentId) {
+      throw new AppError(400, 'MISSING_ORG_STRUCTURE', 'Business branch or department not found. Please verify organization setup.');
+    }
+
     const res = await client.query(
       `INSERT INTO shifts (business_id, branch_id, department_id, starts_at, ends_at, time_zone, status, version)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 1)
        RETURNING id, branch_id, department_id, starts_at, ends_at, time_zone, status, version, created_at`,
-      [businessId, input.branchId, input.departmentId, startsAt, endsAt, timeZone, input.status || 'draft']
+      [businessId, branchId, departmentId, startsAt, endsAt, timeZone, input.status || 'draft']
     );
 
     const created = res.rows[0];
@@ -170,7 +194,24 @@ export async function deleteShift(
 }
 
 /**
- * Assigns a worker to a shift with conflict checking and reasoned manager overrides (FR-AVL-003, BR-001, BR-005, AC-RBAC-03).
+ * Shift assignment role hierarchy:
+ * - Owner: can assign shifts to owner, co_owner, gm, supervisor, staff
+ * - Co-Owner: can assign shifts to co_owner, gm, supervisor, staff (cannot assign to owner)
+ * - GM: can assign shifts to gm, supervisor, staff (cannot assign to owner, co_owner)
+ * - Supervisor: can ONLY assign shifts to staff (cannot assign to owner, co_owner, gm, supervisor)
+ * - Staff: cannot assign shifts
+ */
+export const ALLOWED_SHIFT_ASSIGNEE_ROLES: Record<string, string[]> = {
+  owner: ['owner', 'co_owner', 'gm', 'supervisor', 'staff'],
+  co_owner: ['co_owner', 'gm', 'supervisor', 'staff'],
+  gm: ['gm', 'supervisor', 'staff'],
+  supervisor: ['staff'],
+  staff: [],
+};
+
+/**
+ * Assigns a worker to a shift with conflict checking, reasoned manager overrides,
+ * and strict role hierarchy enforcement (Supervisors cannot assign shifts to Owner or higher roles).
  */
 export async function assignWorker(
   businessId: string,
@@ -181,7 +222,51 @@ export async function assignWorker(
   requestId: string,
   overrideReason?: string
 ) {
-  return withTenantContext(businessId, async (client) => {
+  const result = await withTenantContext(businessId, async (client) => {
+    // 0. Enforce role hierarchy on shift assignments
+    const targetMemberRes = await client.query<{ id: string; role: string; status: string }>(
+      'SELECT id, role, status FROM memberships WHERE business_id = $1 AND id = $2',
+      [businessId, membershipId]
+    );
+
+    if (targetMemberRes.rowCount === 0) {
+      throw new AppError(404, 'NOT_FOUND', 'Target team member not found');
+    }
+
+    const targetMember = targetMemberRes.rows[0];
+    const callerNorm = (callerRole || '').toLowerCase();
+    const targetNorm = (targetMember.role || '').toLowerCase();
+
+    const allowed = ALLOWED_SHIFT_ASSIGNEE_ROLES[callerNorm];
+    if (!allowed || !allowed.includes(targetNorm)) {
+      if (callerNorm === 'supervisor' && targetNorm === 'owner') {
+        throw new AppError(
+          403,
+          'FORBIDDEN',
+          'Supervisors cannot assign shifts to the Owner'
+        );
+      }
+      if (callerNorm === 'supervisor' && ['co_owner', 'gm'].includes(targetNorm)) {
+        throw new AppError(
+          403,
+          'FORBIDDEN',
+          `Supervisors cannot assign shifts to higher role '${targetMember.role}'. Supervisors may only assign shifts to Staff.`
+        );
+      }
+      if (callerNorm === 'supervisor' && targetNorm === 'supervisor') {
+        throw new AppError(
+          403,
+          'FORBIDDEN',
+          `Supervisors cannot assign shifts to fellow Supervisors. Supervisors may only assign shifts to Staff.`
+        );
+      }
+      throw new AppError(
+        403,
+        'FORBIDDEN',
+        `Role '${callerRole}' is not permitted to assign shifts to role '${targetMember.role}'`
+      );
+    }
+
     // 1. Detect conflicts
     const conflictResult = await detectAssignmentConflicts(client, businessId, shiftId, membershipId);
 
@@ -233,11 +318,24 @@ export async function assignWorker(
         ]
       );
 
+      const shiftRes = await client.query<{
+        id: string;
+        status: string;
+        branch_id: string | null;
+        department_id: string | null;
+        starts_at: Date;
+        ends_at: Date;
+      }>(
+        'SELECT id, status, branch_id, department_id, starts_at, ends_at FROM shifts WHERE business_id = $1 AND id = $2',
+        [businessId, shiftId]
+      );
+
       cacheService.invalidatePrefix(businessId, 'schedule');
       return {
         assignment: assignRes.rows[0],
         overridden: true,
         conflicts: conflictResult.conflicts,
+        shiftInfo: shiftRes.rows[0] || null,
       };
     }
 
@@ -249,24 +347,102 @@ export async function assignWorker(
       [businessId, shiftId, membershipId]
     );
 
+    const shiftRes = await client.query<{
+      id: string;
+      status: string;
+      branch_id: string | null;
+      department_id: string | null;
+      starts_at: Date;
+      ends_at: Date;
+    }>(
+      'SELECT id, status, branch_id, department_id, starts_at, ends_at FROM shifts WHERE business_id = $1 AND id = $2',
+      [businessId, shiftId]
+    );
+
     cacheService.invalidatePrefix(businessId, 'schedule');
     return {
       assignment: assignRes.rows[0],
       overridden: false,
       conflicts: [],
+      shiftInfo: shiftRes.rows[0] || null,
     };
   });
+
+  // Notify assigned worker if the shift is active/published
+  if (result.shiftInfo?.status === 'published') {
+    try {
+      await notifyPublishedShifts(businessId, [shiftId]);
+    } catch (notifyErr) {
+      console.error('[AssignWorker Notification Warning]', notifyErr);
+    }
+  }
+
+  // Emit activity event for Feed visibility (FR-ACT-005, AC-ACT-01)
+  try {
+    await emitActivityEvent(businessId, {
+      type: 'schedule.shift_assigned',
+      branchId: result.shiftInfo?.branch_id || null,
+      departmentId: result.shiftInfo?.department_id || null,
+      actorMembershipId: callerMembershipId,
+      subjectMembershipId: membershipId,
+      visibilityClass: 'schedule',
+      payload: {
+        shiftId,
+        startsAt: result.shiftInfo?.starts_at,
+        endsAt: result.shiftInfo?.ends_at,
+      },
+    });
+  } catch (eventErr) {
+    console.error('[AssignWorker Event Warning]', eventErr);
+  }
+
+  return {
+    assignment: result.assignment,
+    overridden: result.overridden,
+    conflicts: result.conflicts,
+  };
 }
 
 /**
- * Unassigns a worker from a shift.
+ * Unassigns a worker from a shift, enforcing hierarchy permissions.
  */
 export async function unassignWorker(
   businessId: string,
   shiftId: string,
-  membershipId: string
+  membershipId: string,
+  callerRole?: string
 ) {
   return withTenantContext(businessId, async (client) => {
+    if (callerRole) {
+      const targetMemberRes = await client.query<{ id: string; role: string }>(
+        'SELECT id, role FROM memberships WHERE business_id = $1 AND id = $2',
+        [businessId, membershipId]
+      );
+      if (targetMemberRes.rowCount && targetMemberRes.rowCount > 0) {
+        const targetMember = targetMemberRes.rows[0];
+        const callerNorm = (callerRole || '').toLowerCase();
+        const targetNorm = (targetMember.role || '').toLowerCase();
+        const allowed = ALLOWED_SHIFT_ASSIGNEE_ROLES[callerNorm];
+        if (!allowed || !allowed.includes(targetNorm)) {
+          if (callerNorm === 'supervisor' && targetNorm === 'owner') {
+            throw new AppError(403, 'FORBIDDEN', 'Supervisors cannot unassign shifts for the Owner');
+          }
+          if (callerNorm === 'supervisor') {
+            throw new AppError(
+              403,
+              'FORBIDDEN',
+              `Supervisors cannot unassign shifts for role '${targetMember.role}'. Supervisors may only manage shifts for Staff.`
+            );
+          }
+          throw new AppError(
+            403,
+            'FORBIDDEN',
+            `Role '${callerRole}' is not permitted to unassign shifts for role '${targetMember.role}'`
+          );
+        }
+      }
+    }
+
     const res = await client.query(
       'DELETE FROM shift_assignments WHERE business_id = $1 AND shift_id = $2 AND membership_id = $3 RETURNING id',
       [businessId, shiftId, membershipId]
@@ -429,6 +605,23 @@ export async function publishSchedule(
   // Notify affected staff (AC-006, FR-SCH-006, BR-002)
   await notifyPublishedShifts(businessId, shiftIds);
 
+  try {
+    await emitActivityEvent(businessId, {
+      type: 'schedule.published',
+      branchId: null,
+      departmentId: null,
+      actorMembershipId: null,
+      subjectMembershipId: null,
+      visibilityClass: 'schedule',
+      payload: {
+        shiftIds,
+        count: shiftIds.length,
+      },
+    });
+  } catch (eventErr) {
+    console.error('[PublishSchedule Event Warning]', eventErr);
+  }
+
   cacheService.invalidatePrefix(businessId, 'schedule');
   return published;
 }
@@ -445,7 +638,7 @@ export async function getSchedule(
   const effectiveStatus = callerRole === 'Staff' ? 'published' : (options?.status || 'all');
   const cacheKey = `schedule:${callerRole}:${options?.departmentId || 'all'}:${options?.branchId || 'all'}:${effectiveStatus}`;
 
-  const cached = cacheService.get<unknown[]>(businessId, cacheKey);
+  const cached = await cacheService.get<unknown[]>(businessId, cacheKey);
   if (cached) {
     return cached;
   }
@@ -497,6 +690,6 @@ export async function getSchedule(
     return res.rows;
   });
 
-  cacheService.set(businessId, cacheKey, result, 60);
+  await cacheService.set(businessId, cacheKey, result, 60);
   return result;
 }

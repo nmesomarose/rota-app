@@ -97,3 +97,18 @@ export function getSchemaForBusiness(businessId: string): string {
   const shardId = getShardIdForBusiness(businessId);
   return SHARD_SCHEMAS[shardId];
 }
+
+/**
+ * Tenant Boundary Alignment & Parity (PRD 9.1, DR-04, Phase 2):
+ * In Rota's multi-tenant architecture, 'business_id' is the canonical database and schema tenant
+ * boundary identifier (representing the organization / business entity).
+ * In user-facing workflows, tests and mobile screens, this boundary is frequently referred to as
+ * 'team' or 'team_id' (e.g. TeamScreen, team-management.test.ts).
+ * 
+ * Both identifiers represent the exact same tenant boundary. The aliases below guarantee full
+ * backward and forward compatibility whether callers supply 'business_id' or 'team_id'.
+ */
+export const getShardIdForTeam = getShardIdForBusiness;
+export const validateTeamId = validateBusinessId;
+export const getSchemaForTeam = getSchemaForBusiness;
+

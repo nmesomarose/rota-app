@@ -27,7 +27,10 @@ describe('Milestone M6: End-to-End Billing Lifecycle, Webhooks, Ledger Immutabil
   let biz2Token: string;
   let biz2Id: string;
 
+  const previousBillingProvider = process.env.BILLING_PROVIDER;
+
   before(async () => {
+    process.env.BILLING_PROVIDER = 'simulated';
     resetFxFixtureState();
     const app = createApp();
     server = await new Promise((resolve) => {
@@ -529,5 +532,16 @@ describe('Milestone M6: End-to-End Billing Lifecycle, Webhooks, Ledger Immutabil
     });
     // RLS and composite keys ensure Tenant A gets 404 NOT_FOUND
     assert.equal(confirmRes.status, 404);
+  });
+
+  after(async () => {
+    if (previousBillingProvider !== undefined) {
+      process.env.BILLING_PROVIDER = previousBillingProvider;
+    } else {
+      delete process.env.BILLING_PROVIDER;
+    }
+    if (server) {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
   });
 });

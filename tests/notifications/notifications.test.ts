@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createApp } from '../../src/app.ts';
-import { controlPool } from '../../src/db/connection.ts';
+import { controlPool, closeAllPools } from '../../src/db/connection.ts';
 import { withTenantContext } from '../../src/db/tenant-context.ts';
 import { hashPassword } from '../../src/services/password-service.ts';
 import { assignWorker, createShift } from '../../src/services/scheduling-service.ts';
@@ -107,6 +107,7 @@ describe('Milestone M4: Notifications & In-App Inbox', () => {
       await withTenantContext(businessId, async (client) => {
         await client.query('DELETE FROM inbox_items WHERE business_id = $1', [businessId]);
         await client.query('DELETE FROM notification_deliveries WHERE business_id = $1', [businessId]);
+        await client.query('DELETE FROM activity_events WHERE business_id = $1', [businessId]);
         await client.query('DELETE FROM shifts WHERE business_id = $1', [businessId]);
         await client.query('DELETE FROM memberships WHERE business_id = $1', [businessId]);
         await client.query('DELETE FROM businesses WHERE id = $1', [businessId]);
@@ -126,6 +127,7 @@ describe('Milestone M4: Notifications & In-App Inbox', () => {
     if (advUserId) {
       await controlPool.query('DELETE FROM users WHERE id = $1', [advUserId]);
     }
+    await closeAllPools();
   });
 
   it('registers a device push token in control plane and prevents duplicate token collision (FR-NOT-002, AC-NOT-09, C-10)', async () => {

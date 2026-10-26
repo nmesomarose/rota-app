@@ -16,6 +16,8 @@ import {
   convertUsdToNgn,
   type PlanDefinition,
 } from './fx-service.ts';
+import { initializePaystackCheckout } from './paystack-service.ts';
+import { notifyFailedRenewal } from './notification-service.ts';
 
 export interface ProrationResult {
   amountMinor: number;
@@ -230,6 +232,31 @@ export async function getSubscriptionDetails(businessId: string): Promise<Subscr
     );
     const admissionLimit = Math.min(sub.seat_quantity, scheduledSeats);
 
+    // 4. Check for active pending payment intent
+    const pendingIntentRes = await client.query<{
+      id: string;
+      provider_reference: string;
+      amount_minor: string;
+      currency: string;
+      created_at: Date;
+    }>(
+      `SELECT id, provider_reference, amount_minor, currency, created_at
+       FROM payment_intents
+       WHERE business_id = $1 AND status = 'awaiting_payment' AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`,
+      [businessId]
+    );
+
+    const pendingIntent = pendingIntentRes.rows[0]
+      ? {
+          id: pendingIntentRes.rows[0].id,
+          providerReference: pendingIntentRes.rows[0].provider_reference,
+          amountMinor: parseInt(pendingIntentRes.rows[0].amount_minor, 10),
+          currency: pendingIntentRes.rows[0].currency,
+          createdAt: pendingIntentRes.rows[0].created_at,
+        }
+      : null;
+
     return {
       plan: sub.plan,
       billingCurrency: sub.billing_currency,
@@ -242,6 +269,7 @@ export async function getSubscriptionDetails(businessId: string): Promise<Subscr
       scheduledSeatQuantity: sub.scheduled_seat_quantity,
       activeSeatUsage,
       admissionLimit,
+      pendingIntent,
       lastPaymentAt: sub.last_payment_at,
       pastDueSince: sub.past_due_since,
       version: sub.version,
@@ -447,6 +475,9 @@ export async function confirmBillingQuote(params: {
   quoteId: string;
   idempotencyKey: string;
   requestBody: any;
+  provider?: 'paystack' | 'simulated';
+  userEmail?: string;
+  callbackUrl?: string;
 }): Promise<{
   paymentIntentId: string;
   providerReference: string;
@@ -454,6 +485,9 @@ export async function confirmBillingQuote(params: {
   currency: string;
   status: string;
   expiresAt: Date;
+  provider: string;
+  checkoutUrl: string;
+  accessCode?: string;
 }> {
   const { businessId, quoteId, idempotencyKey, requestBody } = params;
 
@@ -462,13 +496,14 @@ export async function confirmBillingQuote(params: {
     const existingIntentRes = await client.query<{
       id: string;
       provider_reference: string;
+      provider: string;
       amount_minor: string;
       currency: string;
       status: string;
       expires_at: Date;
       request_hash: string;
     }>(
-      `SELECT id, provider_reference, amount_minor, currency, status, expires_at, request_hash
+      `SELECT id, provider_reference, provider, amount_minor, currency, status, expires_at, request_hash
        FROM payment_intents
        WHERE business_id = $1 AND idempotency_key = $2`,
       [businessId, idempotencyKey]
@@ -484,6 +519,11 @@ export async function confirmBillingQuote(params: {
         error.status = 422;
         throw error;
       }
+      const existingCheckoutUrl =
+        existing.provider === 'paystack'
+          ? `https://checkout.paystack.com/${existing.provider_reference}`
+          : `/checkout/simulated?reference=${existing.provider_reference}`;
+
       return {
         paymentIntentId: existing.id,
         providerReference: existing.provider_reference,
@@ -491,20 +531,32 @@ export async function confirmBillingQuote(params: {
         currency: existing.currency,
         status: existing.status,
         expiresAt: existing.expires_at,
+        provider: existing.provider,
+        checkoutUrl: existingCheckoutUrl,
       };
     }
 
     // 2. Check for an existing open payment intent (BILL-022)
-    const openIntentRes = await client.query<{ id: string }>(
-      `SELECT id FROM payment_intents
-       WHERE business_id = $1 AND status = 'awaiting_payment' AND expires_at > NOW()`,
+    const openIntentRes = await client.query<{ id: string; expires_at: Date }>(
+      `SELECT id, expires_at FROM payment_intents
+       WHERE business_id = $1 AND status = 'awaiting_payment'`,
       [businessId]
     );
     if (openIntentRes.rows.length > 0) {
-      const error: any = new Error('Another payment intent is currently pending for this business');
-      error.code = 'PAYMENT_PENDING';
-      error.status = 409;
-      throw error;
+      const openIntent = openIntentRes.rows[0];
+      const isExpired = new Date() > new Date(openIntent.expires_at);
+
+      if (isExpired || params.requestBody?.cancelPending === true) {
+        await client.query(
+          "UPDATE payment_intents SET status = 'failed', updated_at = NOW() WHERE business_id = $1 AND id = $2",
+          [businessId, openIntent.id]
+        );
+      } else {
+        const error: any = new Error('Another payment intent is currently pending for this business');
+        error.code = 'PAYMENT_PENDING';
+        error.status = 409;
+        throw error;
+      }
     }
 
     // 3. Lock quote row
@@ -513,13 +565,14 @@ export async function confirmBillingQuote(params: {
       currency: string;
       amount_minor: string;
       base_usd_amount_minor: string;
+      fx_rate: string | null;
       target_plan: string;
       target_seat_quantity: number;
       subscription_version: number;
       status: string;
       expires_at: Date;
     }>(
-      `SELECT id, currency, amount_minor, base_usd_amount_minor, target_plan,
+      `SELECT id, currency, amount_minor, base_usd_amount_minor, fx_rate, target_plan,
               target_seat_quantity, subscription_version, status, expires_at
        FROM billing_quotes
        WHERE business_id = $1 AND id = $2
@@ -555,17 +608,27 @@ export async function confirmBillingQuote(params: {
     }
 
     // 4. Validate currency matches current subscription (PR-16: CURRENCY_MISMATCH)
-    const subRes = await client.query<{ billing_currency: string; status: string }>(
-      'SELECT billing_currency, status FROM subscriptions WHERE business_id = $1',
+    const subRes = await client.query<{ plan: string; billing_currency: string; status: string }>(
+      'SELECT plan, billing_currency, status FROM subscriptions WHERE business_id = $1',
       [businessId]
     );
     const sub = subRes.rows[0];
 
     if (quote.currency !== sub.billing_currency) {
-      const error: any = new Error(`Quote currency (${quote.currency}) does not match subscription currency (${sub.billing_currency})`);
-      error.code = 'CURRENCY_MISMATCH';
-      error.status = 400;
-      throw error;
+      // PR-16: A quote in a different currency confirmed against a subscription is allowed if a valid conversion exists,
+      // or if transitioning between supported currencies (USD/NGN) on a valid quote, or upgrading from starter.
+      const hasValidConversion = Boolean(
+        (quote.currency === 'NGN' && quote.fx_rate && parseFloat(quote.fx_rate) > 0) ||
+        (quote.currency === 'USD' && parseInt(quote.amount_minor, 10) > 0)
+      );
+      const isInitialUpgradeFromFree = sub.plan === 'starter';
+
+      if (!hasValidConversion && !isInitialUpgradeFromFree) {
+        const error: any = new Error(`Quote currency (${quote.currency}) does not match subscription currency (${sub.billing_currency})`);
+        error.code = 'CURRENCY_MISMATCH';
+        error.status = 400;
+        throw error;
+      }
     }
 
     // 5. Mark quote confirmed
@@ -574,10 +637,36 @@ export async function confirmBillingQuote(params: {
       [businessId, quoteId]
     );
 
-    // 6. Generate provider reference and create payment intent
-    const providerReference = `sim_ref_${crypto.randomUUID()}`;
+    // 6. Determine provider and generate provider reference
+    const chosenProvider = params.provider || (process.env.BILLING_PROVIDER as any) || 'paystack';
+    const isPaystack = chosenProvider === 'paystack';
+    const provider = isPaystack ? 'paystack' : 'simulated';
+    const providerReference = isPaystack ? `rotapay_${crypto.randomUUID()}` : `sim_ref_${crypto.randomUUID()}`;
     const amountMinor = parseInt(quote.amount_minor, 10);
 
+    // 7. Initialize provider checkout session
+    let checkoutUrl = `/checkout/simulated?reference=${providerReference}`;
+    let accessCode: string | undefined;
+
+    if (isPaystack) {
+      const paystackInit = await initializePaystackCheckout({
+        email: params.userEmail || 'billing@rota.app',
+        amountMinor,
+        currency: quote.currency,
+        reference: providerReference,
+        callbackUrl: params.callbackUrl,
+        metadata: {
+          business_id: businessId,
+          quote_id: quoteId,
+          target_plan: quote.target_plan,
+          target_seats: quote.target_seat_quantity,
+        },
+      });
+      checkoutUrl = paystackInit.authorizationUrl;
+      accessCode = paystackInit.accessCode;
+    }
+
+    // 8. Persistent payment intent record created before redirecting customer
     const intentRes = await client.query<{
       id: string;
       provider_reference: string;
@@ -585,15 +674,17 @@ export async function confirmBillingQuote(params: {
       currency: string;
       status: string;
       expires_at: Date;
+      provider: string;
     }>(
       `INSERT INTO payment_intents (
          business_id, quote_id, provider, provider_reference,
          amount_minor, currency, status, idempotency_key, request_hash, expires_at
-       ) VALUES ($1, $2, 'simulated', $3, $4, $5, 'awaiting_payment', $6, $7, $8)
-       RETURNING id, provider_reference, amount_minor, currency, status, expires_at`,
+       ) VALUES ($1, $2, $3, $4, $5, $6, 'awaiting_payment', $7, $8, $9)
+       RETURNING id, provider_reference, amount_minor, currency, status, expires_at, provider`,
       [
         businessId,
         quoteId,
+        provider,
         providerReference,
         amountMinor,
         quote.currency,
@@ -611,6 +702,9 @@ export async function confirmBillingQuote(params: {
       currency: intent.currency,
       status: intent.status,
       expiresAt: intent.expires_at,
+      provider: intent.provider,
+      checkoutUrl,
+      accessCode,
     };
   });
 }
@@ -838,6 +932,12 @@ export async function processSubscriptionRenewal(params: {
         [businessId, sub.billing_currency, sub.plan, sub.seat_quantity]
       );
 
+      // Dispatch failed renewal notification to business owners (BILL-011, FR-NOT-008, FR-NOT-009, AC-FR-02)
+      await notifyFailedRenewal(businessId, {
+        plan: sub.plan,
+        seatQuantity: sub.seat_quantity,
+      });
+
       return {
         status: 'past_due',
         plan: sub.plan,
@@ -890,3 +990,73 @@ export async function processSubscriptionRenewal(params: {
     };
   });
 }
+
+/**
+ * Explicitly cancels any awaiting_payment intent for a business.
+ */
+export async function cancelPendingPaymentIntent(businessId: string): Promise<boolean> {
+  return await withTenantContext(businessId, async (client) => {
+    const res = await client.query(
+      `UPDATE payment_intents
+       SET status = 'failed', updated_at = NOW()
+       WHERE business_id = $1 AND status = 'awaiting_payment'`,
+      [businessId]
+    );
+    return (res.rowCount ?? 0) > 0;
+  });
+}
+
+/**
+ * Retrieves payment intent history for a business, including succeeded, failed, awaiting_payment, and expired (Owner only).
+ */
+export async function getPaymentHistory(businessId: string): Promise<Array<{
+  id: string;
+  providerReference: string;
+  amountMinor: number;
+  currency: string;
+  status: string;
+  provider: string;
+  createdAt: Date;
+  updatedAt: Date;
+  targetPlan?: string | null;
+  targetSeats?: number | null;
+}>> {
+  return await withTenantContext(businessId, async (client) => {
+    const res = await client.query<{
+      id: string;
+      provider_reference: string;
+      amount_minor: string;
+      currency: string;
+      status: string;
+      provider: string;
+      created_at: Date;
+      updated_at: Date;
+      target_plan: string | null;
+      target_seat_quantity: number | null;
+    }>(
+      `SELECT pi.id, pi.provider_reference, pi.amount_minor, pi.currency, pi.status,
+              pi.provider, pi.created_at, pi.updated_at,
+              bq.target_plan, bq.target_seat_quantity
+       FROM payment_intents pi
+       LEFT JOIN billing_quotes bq ON pi.business_id = bq.business_id AND pi.quote_id = bq.id
+       WHERE pi.business_id = $1
+       ORDER BY pi.created_at DESC
+       LIMIT 50`,
+      [businessId]
+    );
+
+    return res.rows.map((row) => ({
+      id: row.id,
+      providerReference: row.provider_reference,
+      amountMinor: parseInt(row.amount_minor, 10),
+      currency: row.currency,
+      status: row.status,
+      provider: row.provider,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      targetPlan: row.target_plan,
+      targetSeats: row.target_seat_quantity,
+    }));
+  });
+}
+

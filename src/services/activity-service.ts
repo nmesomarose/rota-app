@@ -1,6 +1,7 @@
 import { withTenantContext } from '../db/tenant-context.ts';
 import type { AuthenticatedUser } from '../middleware/auth-middleware.ts';
 import { AppError } from '../utils/errors.ts';
+import { cacheService } from './cache-service.ts';
 
 export type VisibilityClass =
   | 'schedule'
@@ -71,13 +72,43 @@ function decodeCursor(cursorStr: string): CursorPayload {
 }
 
 /**
+ * Generates an audience-aware and query-specific cache key for the activity feed (SEC-014, AC-TEN-05).
+ * Distinguishes Owner/Co-Owner (full business timeline) from GM, Supervisor, and Staff scoped feeds,
+ * preventing cross-role and cross-tenant data leakage.
+ */
+export function buildActivityFeedCacheKey(
+  user: AuthenticatedUser,
+  limit: number,
+  cursor?: string
+): string {
+  const role = (user.role || 'staff').toLowerCase();
+  const membershipId = user.membershipId || 'none';
+  const departmentId = user.departmentId || 'none';
+  const cursorKey = cursor ? cursor : 'first';
+
+  let audienceScope: string;
+  if (role === 'owner' || role === 'co_owner') {
+    audienceScope = 'owner_tier';
+  } else if (role === 'gm') {
+    audienceScope = `gm:${membershipId}`;
+  } else if (role === 'supervisor') {
+    audienceScope = `supervisor:${membershipId}:${departmentId}`;
+  } else {
+    audienceScope = `staff:${membershipId}`;
+  }
+
+  return `activity:feed:${audienceScope}:${limit}:${cursorKey}`;
+}
+
+/**
  * Emits an activity event into the tenant shard with forced RLS and tenant scoping (FR-ACT-005).
+ * Automatically triggers write-through cache invalidation for the tenant's activity feed partition.
  */
 export async function emitActivityEvent(
   businessId: string,
   input: EmitEventInput
 ): Promise<ActivityEvent> {
-  return withTenantContext(businessId, async (client) => {
+  const event = await withTenantContext(businessId, async (client) => {
     const res = await client.query<ActivityEvent>(
       `INSERT INTO activity_events (
         business_id,
@@ -105,10 +136,16 @@ export async function emitActivityEvent(
 
     return res.rows[0];
   });
+
+  // Write-through cache invalidation for this tenant's activity feeds (AC-OPS-05, AC-TEN-05)
+  await cacheService.invalidatePrefix(businessId, 'activity');
+
+  return event;
 }
 
 /**
  * Retrieves cursor-paginated activity feed with role-based visibility resolution on the server (FR-ACT-001..007, AC-014, AC-ACT-01..05).
+ * Backed by tenant-safe Redis caching with safe fallback to PostgreSQL.
  */
 export async function getActivityFeed(
   businessId: string,
@@ -116,6 +153,15 @@ export async function getActivityFeed(
   options: GetFeedOptions = {}
 ): Promise<FeedResponse> {
   const limit = Math.min(Math.max(1, Number(options.limit) || 50), 50);
+  const cacheKey = buildActivityFeedCacheKey(user, limit, options.cursor);
+
+  // 1. Try cache hit (Redis primary, memory fallback)
+  const cached = await cacheService.get<FeedResponse>(businessId, cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  // 2. Cache miss: execute query on PostgreSQL shard
   const membershipId = user.membershipId;
   const role = (user.role || 'staff').toLowerCase();
   const departmentId = user.departmentId;
@@ -125,14 +171,14 @@ export async function getActivityFeed(
     cursorData = decodeCursor(options.cursor);
   }
 
-  return withTenantContext(businessId, async (client) => {
+  const result = await withTenantContext(businessId, async (client) => {
     // Build SQL query parameters and conditions
     const params: unknown[] = [businessId];
     const conditions: string[] = ['business_id = $1'];
 
     // 1. Role-based server-side audience filtering (Section 4.6, FR-ACT-005, FR-ACT-007, AC-ACT-01, AC-ACT-02)
-    if (role === 'owner') {
-      // Owners can see all event classes within their business
+    if (role === 'owner' || role === 'co_owner') {
+      // Owners and co-owners can see all event classes within their business
     } else if (role === 'gm') {
       // GM: No billing events; security events visible only if GM is actor or subject
       params.push(membershipId);
@@ -231,4 +277,10 @@ export async function getActivityFeed(
       hasMore,
     };
   });
+
+  // 3. Cache the computed response for 60 seconds TTL (AC-TEN-05, AC-OPS-05)
+  await cacheService.set(businessId, cacheKey, result, 60);
+
+  return result;
 }
+

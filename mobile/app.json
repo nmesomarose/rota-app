@@ -2,26 +2,50 @@
   "expo": {
     "name": "Rota",
     "slug": "rota-mobile",
+    "scheme": "rota",
     "version": "0.1.0",
+    "sdkVersion": "57.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "splash": {
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F172A"
+      "backgroundColor": "#17324D"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.rota.app"
+      "bundleIdentifier": "com.rota.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0F172A"
       },
-      "package": "com.rota.app"
+      "package": "com.rota.app",
+      "googleServicesFile": "./google-services.json",
+      "usesCleartextTraffic": true
     },
-    "plugins": []
+    "plugins": [
+      "expo-status-bar",
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0F172A"
+        }
+      ],
+      "@react-native-google-signin/google-signin"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e518331f-054c-47cc-9946-7d4606b347bf"
+      }
+    }
   }
 }

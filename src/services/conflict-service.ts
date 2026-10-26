@@ -81,7 +81,7 @@ export async function detectAssignmentConflicts(
 
   // 3. Department matching constraint (C-07, AC-DM-02)
   // Staff must strictly belong to the shift's department.
-  if (member.role === 'Staff' && member.department_id !== shift.department_id) {
+  if (member.role?.toLowerCase() === 'staff' && member.department_id !== shift.department_id) {
     conflicts.push({
       type: 'DEPARTMENT_MISMATCH',
       message: `Staff member belongs to department '${member.department_id}', but shift is in department '${shift.department_id}'`,

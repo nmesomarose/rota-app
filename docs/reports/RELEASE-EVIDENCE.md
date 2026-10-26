@@ -15,8 +15,8 @@ This report provides verifiable, reproducible empirical evidence for the graduat
 
 | Scope Area | Objective / Invariant | Status | Empirical Outcome |
 |---|---|---|---|
-| **200-VU Load Test** | `AC-015`, `NFR-PERF-002` | **VERIFIED** | 200 concurrent VUs sustained at 142.61 req/sec cached (0% errors across 400 requests). |
-| **Caching Comparison** | `AC-TEN-05`, `AC-OPS-05` | **VERIFIED** | 2.1x throughput gain, 53.0% reduction in p95 latency, sub-50ms write invalidation. |
+| **200-VU Activity Feed Benchmark** | `AC-015`, `NFR-PERF-002`, `AC-ACT-05` | **VERIFIED** | 200 concurrent VUs on `GET /v1/activity` sustained at 63.03 req/sec cached on Redis (0% errors across 400 requests). |
+| **Redis Caching Comparison** | `AC-TEN-05`, `AC-OPS-03`, `AC-OPS-05` | **VERIFIED** | 1.97x throughput gain, 49.8% drop in p95 latency, 41.61ms write invalidation. |
 | **Query Plan Analysis** | `NFR-PERF-001`, `AC-ACT-05` | **VERIFIED** | Sub-millisecond index scans on activity feed (0.17ms) and financial ledger (0.11ms). |
 | **Connection Resilience** | `NFR-PERF-003`, `AC-OPS-04` | **VERIFIED** | Pool saturation queued cleanly (20/20 completed); zero context leak under failure. |
 | **Shard Distribution** | `AC-SH-01`, `AC-SH-02` | **VERIFIED** | 1,000 UUIDs split 49.0% / 51.0% with 100% deterministic route stability. |
@@ -26,43 +26,57 @@ This report provides verifiable, reproducible empirical evidence for the graduat
 
 ---
 
-## 2. 200-Virtual-User Load Test & Caching Strategy (`Scope 1 & 2`)
+## 2. 200-Virtual-User Activity Feed Load Test & Redis Caching Benchmark (`Scope 1 & 2`)
 
 ### 2.1 Methodology & Environment Specifications
 - **Operating Environment:** Windows 11 Pro (x64), Node.js v24.21.0, Express 5.3.0.
-- **Database Engine:** PostgreSQL 16.8 (Debian Docker container, local loopback `127.0.0.1:5432`).
-- **Workload Definition:** 200 concurrent simulated virtual users requesting `GET /v1/scheduling/shifts` for an active multi-department organization (`Africa/Lagos` timezone) with 20 published shifts and assignments.
+- **Database Engine:** PostgreSQL 16.8 (Debian Docker container, local loopback `127.0.0.1:5432`), two physical shard databases (`rota_shard_1`, `rota_shard_2`).
+- **Cache Engine:** Redis 7+ server (`localhost:6379`) connected via `ioredis`.
+- **Target Endpoint:** `GET /v1/activity?limit=20` (Authenticated tenant request).
+- **Workload Definition:** 200 concurrent simulated virtual users requesting `GET /v1/activity?limit=20` for an active multi-department organization (`Africa/Lagos` timezone) with 100 seeded activity events (schedule mutations, shift swaps, attendance, and security events).
 - **A/B Comparison Setup:** Executed identically under two conditions:
-  1. **Uncached Baseline:** `cacheService.setEnabled(false)` — each request executes full tenant-scoped query with PostgreSQL aggregation (`LEFT JOIN shift_assignments`, `GROUP BY`, `json_agg`) through `withTenantContext`.
-  2. **Cached Condition:** `cacheService.setEnabled(true)` — requests hit tenant-partitioned memory cache (`tenant:{businessId}:schedule:...`) with 60-second TTL.
-- **Write Invalidation:** A shift creation mutation was executed to measure write overhead and confirm immediate cache invalidation (`AC-OPS-05`).
+  1. **Uncached Baseline:** `cacheService.setEnabled(false)` — each request executes full tenant-scoped keyset pagination query through `withTenantContext` with forced RLS and role-based audience filtering directly on PostgreSQL.
+  2. **Cached Condition:** `cacheService.setEnabled(true)` — requests hit tenant-partitioned Redis cache (`tenant:{businessId}:activity:feed:owner_tier:20:first`) with 60-second TTL.
+- **Write Invalidation:** An activity event mutation was executed to measure write overhead and confirm immediate write-through prefix invalidation (`AC-OPS-05`, `AC-TEN-05`).
+- **Reproducible Command:**
+  ```bash
+  npm run benchmark:feed
+  # Direct script execution:
+  node --experimental-strip-types scripts/benchmark-activity-feed-redis.ts
+  ```
 
 ### 2.2 Measured Results Table
 
 ```
-========================================================================================================================
-200 VIRTUAL USER LOAD TEST & CACHING PERFORMANCE COMPARISON REPORT
-========================================================================================================================
-Condition                      VUs   TotalReqs  Duration(ms)  Req/Sec  Min(ms)  p50(ms)  p90(ms)  p95(ms)  p99(ms)  Max(ms)  Errors  ErrRate%
-------------------------------------------------------------------------------------------------------------------------
-Uncached (Direct PostgreSQL)   200   200        2962.82       67.50    989.90   2420.29  2810.62  2850.02  2864.44  2866.16  0       0.0%
-Cached (Tenant Partitioned)    200   200        1402.46       142.61   438.35   942.14   1298.96  1340.68  1357.14  1357.36  0       0.0%
-========================================================================================================================
+=========================================================================================================
+200 VIRTUAL USER LOAD TEST & REDIS CACHING PERFORMANCE COMPARISON REPORT
+Endpoint: GET /v1/activity?limit=20 | Seed Volume: 100 activity events | Concurrency: 200 VUs
+=========================================================================================================
+Condition                           VUs  TotalReqs Duration(ms) Req/Sec Min(ms) p50(ms)  p90(ms)  p95(ms)  p99(ms)  Max(ms)  Errors ErrRate%
+---------------------------------------------------------------------------------------------------------
+Uncached (Direct PostgreSQL)        200  200       6265.66      31.92   1640.89 5023.71  5905.83  5983.38  6057.15  6069.73  0      0.0%
+Cached (Tenant Partitioned Redis)   200  200       3173.18      63.03   1061.86 2172.54  2827.13  3004.92  3155.08  3160.42  0      0.0%
+=========================================================================================================
 ```
 
 ### 2.3 Statistical Gains & Write Invalidation Measurements
-- **Throughput Multiplier:** **2.1x** increase (from 67.50 to 142.61 requests/second).
-- **p95 Latency Reduction:** **53.0% drop** (from 2850.02ms down to 1340.68ms).
-- **p50 Median Latency Reduction:** **61.1% drop** (from 2420.29ms down to 942.14ms).
+- **Throughput Multiplier:** **1.97x** increase (from 31.92 to 63.03 requests/second).
+- **p95 Latency Reduction:** **49.8% drop** (from 5,983.38ms down to 3,004.92ms).
+- **p50 Median Latency Reduction:** **56.8% drop** (from 5,023.71ms down to 2,172.54ms).
 - **Error Rate:** **0.00%** (zero HTTP 5xx errors or socket drops across all 400 requests).
-- **Write-Through Mutation Latency:** Shift creation + tenant prefix invalidation took **46.42ms**.
-- **Post-Invalidation DB Miss Latency:** Re-querying database and repopulating cache took **32.51ms**.
-- **Subsequent Cached Hit Latency:** **19.71ms** (instant memory response).
+- **Write-Through Mutation Latency:** Event creation + tenant prefix invalidation took **41.61ms**.
+- **Post-Invalidation DB Miss Latency:** Re-querying database and repopulating Redis cache took **51.43ms**.
+- **Subsequent Cached Hit Latency:** **32.81ms** (fast Redis read response).
 
-### 2.4 Tenant Cache Isolation (`AC-TEN-05`, `SEC-014`)
-The caching subsystem (`src/services/cache-service.ts`) enforces strict key prefixing:
-`tenant:${businessId}:${key}`
-When `cacheService.invalidatePrefix(businessId, 'schedule')` is triggered by shift updates or publishing in Business A, key matching targets only `tenant:${businessIdA}:schedule:*`. Tenant B's cached schedule remains untouched, preventing cross-tenant eviction stampedes or cache poisoning.
+### 2.4 Tenant & Audience Cache Isolation (`AC-TEN-05`, `SEC-014`)
+The caching subsystem (`src/services/activity-service.ts` & `src/services/cache-service.ts`) enforces strict key prefixing and audience segmentation:
+- **Tenant Isolation:** `tenant:${businessId}:activity:feed:...`
+- **Audience Segmentation:**
+  - Owner / Co-Owner: `owner_tier` (unfiltered business timeline)
+  - General Manager: `gm:${membershipId}` (excludes billing, scopes security)
+  - Department Supervisor: `supervisor:${membershipId}:${departmentId}` (department + public events)
+  - Staff: `staff:${membershipId}` (self-relevant schedule, swap, and attendance only)
+When `emitActivityEvent` is called, `cacheService.invalidatePrefix(businessId, 'activity')` deletes all cached feed pages for that tenant via non-blocking cursor SCAN in Redis. Other tenants' cache partitions remain untouched, completely preventing cross-tenant and cross-role cache leakage.
 
 ---
 
@@ -121,8 +135,13 @@ Planning Time: 3.218 ms | Execution Time: 3.284 ms
 
 ---
 
-### 3.2 Query 2: Activity Feed 1,000-Record Keyset Cursor Pagination (`AC-ACT-05`, `NFR-PERF-001`)
-**Query SQL:**
+### 3.2 Query 2: Activity Feed 10,000-Record Keyset Cursor Pagination (`AC-ACT-05`, `NFR-PERF-001`, `AC-014`)
+
+**Verification Requirement:** Genuine empirical PostgreSQL `EXPLAIN ANALYZE` comparison demonstrating query performance before and after adding the supporting composite index on a representative dataset of at least 10,000 activity events.
+
+**Benchmark Harness:** `scripts/benchmark-explain-10k.ts` (executed in an isolated disposable session with 10,000 tenant events + 2,000 multi-tenant noise records without altering or dropping schema indexes in shard databases).
+
+**Target Query SQL:**
 ```sql
 SELECT id, created_at, type, branch_id, department_id, visibility_class, payload
 FROM activity_events
@@ -132,23 +151,57 @@ ORDER BY created_at DESC, id DESC
 LIMIT 20;
 ```
 
-**PostgreSQL 16 Execution Plan:**
+#### A. Execution Plan BEFORE Adding Index (Unindexed Sequential Scan Baseline)
 ```
-Limit  (cost=0.27..16.21 rows=1 width=229) (actual time=0.081..0.103 rows=20 loops=1)
-  Buffers: shared hit=3
-  ->  Result  (cost=0.27..16.21 rows=1 width=229) (actual time=0.080..0.098 rows=20 loops=1)
-        One-Time Filter: ((NULLIF(current_setting('app.current_business_id', true), ''))::uuid = '0eeded2d-bafb-4dfe-9845-f8d2fb41a27f'::uuid)
-        Buffers: shared hit=3
-        ->  Index Scan using idx_activity_events_feed on rota_shard_1.activity_events  (cost=0.27..16.21 rows=1 width=229) (actual time=0.065..0.080 rows=20 loops=1)
-              Index Cond: (activity_events.business_id = '0eeded2d-bafb-4dfe-9845-f8d2fb41a27f'::uuid)
-              Filter: ((activity_events.visibility_class)::text = ANY ('{schedule,public}'::text[]))
-              Buffers: shared hit=3
-Planning Time: 3.604 ms | Execution Time: 0.168 ms
+Limit  (cost=623.21..623.26 rows=20 width=129) (actual time=7.687..7.695 rows=20 loops=1)
+  Output: id, created_at, type, branch_id, department_id, visibility_class, payload
+  Buffers: local hit=288
+  ->  Sort  (cost=623.21..637.80 rows=5833 width=129) (actual time=7.684..7.688 rows=20 loops=1)
+        Output: id, created_at, type, branch_id, department_id, visibility_class, payload
+        Sort Key: temp_activity_events_bench.created_at DESC, temp_activity_events_bench.id DESC
+        Sort Method: top-N heapsort  Memory: 30kB
+        Buffers: local hit=288
+        ->  Seq Scan on pg_temp.temp_activity_events_bench  (cost=0.00..468.00 rows=5833 width=129) (actual time=0.032..5.680 rows=5000 loops=1)
+              Output: id, created_at, type, branch_id, department_id, visibility_class, payload
+              Filter: (((temp_activity_events_bench.visibility_class)::text = ANY ('{schedule,public}'::text[])) AND (temp_activity_events_bench.business_id = '0eb37680-0488-4b0a-961d-57fef492e0b4'::uuid))
+              Rows Removed by Filter: 7000
+              Buffers: local hit=288
+Planning Time: 6.524 ms | Execution Time: 7.820 ms
 ```
-**Findings & Justification:**
-- **Sub-Millisecond Execution:** Planning 3.60ms, Execution **0.168 ms**.
-- **Index Optimization:** PostgreSQL utilized `Index Scan using idx_activity_events_feed` on `(business_id, created_at DESC, id DESC)` with only **3 shared buffer hits**.
-- **Zero Sorting Overhead:** Because the composite B-tree index matches the `ORDER BY created_at DESC, id DESC` physical collation exactly, no `Sort` node is generated. This proves `O(1)` keyset pagination scalability even across 10,000+ tenant events (`AC-014`).
+
+#### B. Execution Plan AFTER Adding Composite Index `(business_id, created_at DESC, id DESC)`
+```
+Limit  (cost=0.29..4.46 rows=20 width=129) (actual time=0.150..0.204 rows=20 loops=1)
+  Output: id, created_at, type, branch_id, department_id, visibility_class, payload
+  Buffers: local hit=2 read=3
+  ->  Index Scan using idx_activity_bench_feed on pg_temp.temp_activity_events_bench  (cost=0.29..1218.61 rows=5833 width=129) (actual time=0.147..0.199 rows=20 loops=1)
+        Output: id, created_at, type, branch_id, department_id, visibility_class, payload
+        Index Cond: (temp_activity_events_bench.business_id = '0eb37680-0488-4b0a-961d-57fef492e0b4'::uuid)
+        Filter: ((temp_activity_events_bench.visibility_class)::text = ANY ('{schedule,public}'::text[]))
+        Rows Removed by Filter: 20
+        Buffers: local hit=2 read=3
+Planning Time: 1.389 ms | Execution Time: 0.289 ms
+```
+
+#### C. Subsequent Keyset Cursor Pagination Query Plan (`created_at < cursor.createdAt`)
+```
+Limit  (cost=0.29..4.76 rows=20 width=129) (actual time=0.096..0.124 rows=20 loops=1)
+  Output: id, created_at, type, branch_id, department_id, visibility_class, payload
+  Buffers: local hit=6
+  ->  Index Scan using idx_activity_bench_feed on pg_temp.temp_activity_events_bench  (cost=0.29..1293.61 rows=5784 width=129) (actual time=0.095..0.119 rows=20 loops=1)
+        Output: id, created_at, type, branch_id, department_id, visibility_class, payload
+        Index Cond: (temp_activity_events_bench.business_id = '0eb37680-0488-4b0a-961d-57fef492e0b4'::uuid)
+        Filter: (((temp_activity_events_bench.visibility_class)::text = ANY ('{schedule,public}'::text[])) AND ((temp_activity_events_bench.created_at < '...'::timestamp with time zone) OR ((temp_activity_events_bench.created_at = '...'::timestamp with time zone) AND (temp_activity_events_bench.id < '...'::uuid))))
+        Rows Removed by Filter: 71
+        Buffers: local hit=6
+Planning Time: 0.214 ms | Execution Time: 0.183 ms
+```
+
+#### Comparative Findings & Mathematical Gain:
+- **Execution Time Reduction:** Decreased from **7.820 ms down to 0.289 ms** (**27.06x speedup**). Keyset cursor execution time drops further to **0.183 ms** (**42.7x speedup**).
+- **Buffer Access Reduction:** Buffer hits dropped from **288 pages down to 5 pages** (a **98.3% I/O reduction**).
+- **Elimination of Sort Overhead:** Without the index, PostgreSQL performed an in-memory `top-N heapsort (Memory: 30kB)` across all filtered rows. With the composite index, sorting is completely eliminated (`O(1)` index seek matching the exact physical B-tree order).
+- **Methodological Safety:** The benchmark ran in an isolated disposable session via `scripts/benchmark-explain-10k.ts`, guaranteeing that existing shard schemas (`rota_shard_1`, `rota_shard_2`) were never altered or degraded.
 
 ---
 

@@ -1,7 +1,18 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireTenant } from '../middleware/auth-middleware.ts';
-import { onboardBusiness } from '../services/organization-service.ts';
+import { invitationCreateLimiter, invitationAcceptLimiter } from '../middleware/rate-limiter.ts';
+import {
+  onboardBusiness,
+  getOrganizationMembers,
+  inviteOrganizationMember,
+  acceptOrganizationInvitation,
+  getInvitationDetails,
+  updateOrganizationMemberRole,
+  removeOrganizationMember,
+  transferOrganizationOwnership,
+  deleteOrganization,
+} from '../services/organization-service.ts';
 import { sendError, AppError } from '../utils/errors.ts';
 import { controlPool } from '../db/connection.ts';
 import { withTenantContext } from '../db/tenant-context.ts';
@@ -152,3 +163,279 @@ organizationRouter.get(
     }
   }
 );
+
+const InviteSchema = z.object({
+  email: z.string().email('Valid email is required'),
+  name: z.string().min(1).optional(),
+  role: z.enum(['owner', 'co_owner', 'gm', 'supervisor', 'staff']),
+  branchId: z.string().uuid().optional(),
+  departmentId: z.string().uuid().optional(),
+});
+
+const UpdateRoleSchema = z.object({
+  role: z.enum(['owner', 'co_owner', 'gm', 'supervisor', 'staff']),
+});
+
+const TransferOwnershipSchema = z.object({
+  targetMemberId: z.string().uuid('Valid target member UUID is required'),
+});
+
+/**
+ * GET /v1/organizations/:id/members
+ * Lists all team members within the active business context.
+ */
+organizationRouter.get(
+  '/v1/organizations/:id/members',
+  requireAuth,
+  requireTenant,
+  async (req: Request, res: Response): Promise<void> => {
+    const requestedId = req.params.id;
+    if (requestedId !== req.user?.businessId) {
+      sendError(req, res, 404, 'NOT_FOUND', 'Organization not found');
+      return;
+    }
+
+    try {
+      const members = await getOrganizationMembers(requestedId);
+      res.status(200).json({ members });
+    } catch (err: unknown) {
+      if (err instanceof AppError) {
+        sendError(req, res, err.statusCode, err.code, err.message, err.details);
+        return;
+      }
+      sendError(req, res, 500, 'INTERNAL_SERVER_ERROR', 'Failed to load team members');
+    }
+  }
+);
+
+/**
+ * POST /v1/organizations/:id/members/invite
+ * Invites a team member with role-based authorization and subscription seat validation.
+ */
+organizationRouter.post(
+  '/v1/organizations/:id/members/invite',
+  requireAuth,
+  requireTenant,
+  invitationCreateLimiter,
+  async (req: Request, res: Response): Promise<void> => {
+    const requestedId = req.params.id;
+    if (requestedId !== req.user?.businessId) {
+      sendError(req, res, 404, 'NOT_FOUND', 'Organization not found');
+      return;
+    }
+
+    const parsed = InviteSchema.safeParse(req.body);
+    if (!parsed.success) {
+      sendError(req, res, 400, 'VALIDATION_ERROR', 'Validation failed', {
+        errors: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    try {
+      const invitation = await inviteOrganizationMember(requestedId, req.user!, parsed.data);
+      res.status(201).json({ invitation });
+    } catch (err: unknown) {
+      console.error('[Invite Error]', err);
+      if (err instanceof AppError) {
+        sendError(req, res, err.statusCode, err.code, err.message, err.details);
+        return;
+      }
+      sendError(req, res, 500, 'INTERNAL_SERVER_ERROR', 'Failed to invite team member');
+    }
+  }
+);
+
+const AcceptInvitationSchema = z.object({
+  token: z.string().min(1, 'Invitation token is required'),
+});
+
+/**
+ * GET /v1/organizations/invitations/:token and GET /v1/invitations/:token
+ * Public preview endpoint for team invitations.
+ */
+const getInvitationHandler = async (req: Request, res: Response): Promise<void> => {
+  const token = req.params.token as string;
+  try {
+    const invitation = await getInvitationDetails(token);
+    res.status(200).json({ invitation });
+  } catch (err: unknown) {
+    if (err instanceof AppError) {
+      sendError(req, res, err.statusCode, err.code, err.message, err.details);
+      return;
+    }
+    const msg = err instanceof Error ? err.message : 'Failed to retrieve invitation';
+    console.error('[GetInvitation Error]', msg);
+    sendError(req, res, 500, 'INTERNAL_SERVER_ERROR', 'Failed to retrieve invitation');
+  }
+};
+
+organizationRouter.get('/v1/organizations/invitations/:token', getInvitationHandler);
+organizationRouter.get('/v1/invitations/:token', getInvitationHandler);
+
+/**
+ * POST /v1/organizations/invitations/accept and POST /v1/invitations/accept
+ * Server-side invitation acceptance enforcing email binding, permission persistence, and atomic seat limits.
+ */
+const acceptInvitationHandler = async (req: Request, res: Response): Promise<void> => {
+  if (!req.user) {
+    sendError(req, res, 401, 'AUTHENTICATION_REQUIRED', 'Authentication required');
+    return;
+  }
+
+  const parsed = AcceptInvitationSchema.safeParse(req.body);
+  if (!parsed.success) {
+    sendError(req, res, 400, 'VALIDATION_ERROR', 'Validation failed', {
+      errors: parsed.error.flatten().fieldErrors,
+    });
+    return;
+  }
+
+  try {
+    const result = await acceptOrganizationInvitation(parsed.data.token, req.user);
+    res.status(200).json(result);
+  } catch (err: unknown) {
+    if (err instanceof AppError) {
+      sendError(req, res, err.statusCode, err.code, err.message, err.details);
+      return;
+    }
+    const msg = err instanceof Error ? err.message : 'Failed to accept invitation';
+    console.error('[AcceptInvitation Error]', msg);
+    sendError(req, res, 500, 'INTERNAL_SERVER_ERROR', 'Failed to accept invitation');
+  }
+};
+
+organizationRouter.post('/v1/organizations/invitations/accept', requireAuth, invitationAcceptLimiter, acceptInvitationHandler);
+organizationRouter.post('/v1/invitations/accept', requireAuth, invitationAcceptLimiter, acceptInvitationHandler);
+
+
+/**
+ * PATCH /v1/organizations/:id/members/:memberId/role
+ * Updates a member's role (supervisor appointment, manager promotion, etc.)
+ */
+organizationRouter.patch(
+  '/v1/organizations/:id/members/:memberId/role',
+  requireAuth,
+  requireTenant,
+  async (req: Request, res: Response): Promise<void> => {
+    const requestedId = req.params.id as string;
+    const memberId = req.params.memberId as string;
+    if (requestedId !== req.user?.businessId) {
+      sendError(req, res, 404, 'NOT_FOUND', 'Organization not found');
+      return;
+    }
+
+    const parsed = UpdateRoleSchema.safeParse(req.body);
+    if (!parsed.success) {
+      sendError(req, res, 400, 'VALIDATION_ERROR', 'Validation failed', {
+        errors: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    try {
+      const result = await updateOrganizationMemberRole(requestedId, req.user!, memberId, parsed.data.role);
+      res.status(200).json(result);
+    } catch (err: unknown) {
+      if (err instanceof AppError) {
+        sendError(req, res, err.statusCode, err.code, err.message, err.details);
+        return;
+      }
+      sendError(req, res, 500, 'INTERNAL_SERVER_ERROR', 'Failed to update member role');
+    }
+  }
+);
+
+/**
+ * DELETE /v1/organizations/:id/members/:memberId
+ * Deactivates or removes a team member safely.
+ */
+organizationRouter.delete(
+  '/v1/organizations/:id/members/:memberId',
+  requireAuth,
+  requireTenant,
+  async (req: Request, res: Response): Promise<void> => {
+    const requestedId = req.params.id as string;
+    const memberId = req.params.memberId as string;
+    if (requestedId !== req.user?.businessId) {
+      sendError(req, res, 404, 'NOT_FOUND', 'Organization not found');
+      return;
+    }
+
+    try {
+      const result = await removeOrganizationMember(requestedId, req.user!, memberId);
+      res.status(200).json(result);
+    } catch (err: unknown) {
+      if (err instanceof AppError) {
+        sendError(req, res, err.statusCode, err.code, err.message, err.details);
+        return;
+      }
+      sendError(req, res, 500, 'INTERNAL_SERVER_ERROR', 'Failed to remove member');
+    }
+  }
+);
+
+/**
+ * POST /v1/organizations/:id/transfer-ownership
+ * Transfers organization ownership to another active member.
+ */
+organizationRouter.post(
+  '/v1/organizations/:id/transfer-ownership',
+  requireAuth,
+  requireTenant,
+  async (req: Request, res: Response): Promise<void> => {
+    const requestedId = req.params.id;
+    if (requestedId !== req.user?.businessId) {
+      sendError(req, res, 404, 'NOT_FOUND', 'Organization not found');
+      return;
+    }
+
+    const parsed = TransferOwnershipSchema.safeParse(req.body);
+    if (!parsed.success) {
+      sendError(req, res, 400, 'VALIDATION_ERROR', 'Validation failed', {
+        errors: parsed.error.flatten().fieldErrors,
+      });
+      return;
+    }
+
+    try {
+      const result = await transferOrganizationOwnership(requestedId, req.user!, parsed.data.targetMemberId);
+      res.status(200).json(result);
+    } catch (err: unknown) {
+      if (err instanceof AppError) {
+        sendError(req, res, err.statusCode, err.code, err.message, err.details);
+        return;
+      }
+      sendError(req, res, 500, 'INTERNAL_SERVER_ERROR', 'Failed to transfer ownership');
+    }
+  }
+);
+
+/**
+ * DELETE /v1/organizations/:id
+ * Owner deletes and deactivates the organization.
+ */
+organizationRouter.delete(
+  '/v1/organizations/:id',
+  requireAuth,
+  requireTenant,
+  async (req: Request, res: Response): Promise<void> => {
+    const requestedId = req.params.id;
+    if (requestedId !== req.user?.businessId) {
+      sendError(req, res, 404, 'NOT_FOUND', 'Organization not found');
+      return;
+    }
+
+    try {
+      const result = await deleteOrganization(requestedId, req.user!);
+      res.status(200).json(result);
+    } catch (err: unknown) {
+      if (err instanceof AppError) {
+        sendError(req, res, err.statusCode, err.code, err.message, err.details);
+        return;
+      }
+      sendError(req, res, 500, 'INTERNAL_SERVER_ERROR', 'Failed to delete organization');
+    }
+  }
+);
+

@@ -8,8 +8,11 @@ export type MainTabParamList = {
 };
 
 export type RootStackParamList = {
-  Auth: undefined;
+  Auth: { initialMode?: 'login' | 'signup'; pendingInviteToken?: string; prefilledEmail?: string } | undefined;
+  ForgotPassword: { prefilledEmail?: string } | undefined;
+  ResetPassword: { token?: string; email?: string } | undefined;
   BusinessSelect: undefined;
   Main: NavigatorScreenParams<MainTabParamList> | undefined;
   Billing: undefined;
+  AcceptInvitation: { token?: string };
 };

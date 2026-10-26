@@ -11,6 +11,7 @@ const ACCESS_TOKEN_KEY = 'rota_access_token';
 const REFRESH_TOKEN_KEY = 'rota_refresh_token';
 const USER_PROFILE_KEY = 'rota_user_profile';
 const ACTIVE_BUSINESS_KEY = 'rota_active_business';
+const DEVICE_ID_KEY = 'rota_device_id';
 
 export interface StoredUser {
   id: string;
@@ -101,12 +102,61 @@ export async function clearActiveBusiness(): Promise<void> {
   await secureDelete(ACTIVE_BUSINESS_KEY);
 }
 
+export interface ClearSessionOptions {
+  isExpired?: boolean;
+}
+
+export type ClearSessionHook = (options?: ClearSessionOptions) => void;
+
+let onClearSessionHook: ClearSessionHook | null = null;
+const clearSessionListeners = new Set<ClearSessionHook>();
+
+export function setOnClearSessionHook(hook: ClearSessionHook | null): void {
+  onClearSessionHook = hook;
+}
+
+export function addOnClearSessionListener(listener: ClearSessionHook): () => void {
+  clearSessionListeners.add(listener);
+  return () => {
+    clearSessionListeners.delete(listener);
+  };
+}
+
 /**
  * Clears all user tokens and credentials on logout or revocation (AC-AUTH-02, AC-OFF-01).
  */
-export async function clearSession(): Promise<void> {
+export async function clearSession(options?: ClearSessionOptions): Promise<void> {
   await secureDelete(ACCESS_TOKEN_KEY);
   await secureDelete(REFRESH_TOKEN_KEY);
   await secureDelete(USER_PROFILE_KEY);
   await secureDelete(ACTIVE_BUSINESS_KEY);
+  if (onClearSessionHook) {
+    try {
+      onClearSessionHook(options);
+    } catch {
+      // safe fallback
+    }
+  }
+  for (const listener of clearSessionListeners) {
+    try {
+      listener(options);
+    } catch {
+      // safe fallback
+    }
+  }
 }
+
+/**
+ * Returns a persistent device ID for push token registration (FR-NOT-002, AC-NOT-09).
+ * Survives user logouts to maintain device continuity in the control plane.
+ */
+export async function getDeviceId(): Promise<string> {
+  const existing = await secureGet(DEVICE_ID_KEY);
+  if (existing) {
+    return existing;
+  }
+  const newDeviceId = 'dev_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now().toString(36);
+  await secureSet(DEVICE_ID_KEY, newDeviceId);
+  return newDeviceId;
+}
+

@@ -6,6 +6,7 @@ import { createApp } from '../../src/app.ts';
 import { controlPool, closeAllPools } from '../../src/db/connection.ts';
 import { withTenantContext } from '../../src/db/tenant-context.ts';
 import { emitActivityEvent } from '../../src/services/activity-service.ts';
+import { cacheService } from '../../src/services/cache-service.ts';
 
 describe('Milestone M5: Scoped Activity Feed & 10,000-Record Cursor Pagination Invariant', () => {
   let server: Server;
@@ -251,6 +252,7 @@ describe('Milestone M5: Scoped Activity Feed & 10,000-Record Cursor Pagination I
       );
     });
     console.log(`[Test AC-014] Seeded 10,000 rows in ${Date.now() - seedStart}ms`);
+    await cacheService.invalidatePrefix(businessId, 'activity');
 
     // 2. Traverse first 1,000 records across 20 consecutive pages (limit = 50) using cursor pagination
     // to comprehensively prove stable cursor progression without duplicates or gaps

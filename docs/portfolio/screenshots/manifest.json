@@ -1,0 +1,66 @@
+[
+  {
+    "filename": "rota-01-schedule-calendar.png",
+    "path": "docs/portfolio/screenshots/rota-01-schedule-calendar.png",
+    "timestamp": "00:00:18.400",
+    "sizeBytes": 301917,
+    "title": "Schedule Screen (Light Mode)",
+    "status": "VERIFIED_OK"
+  },
+  {
+    "filename": "rota-01b-schedule-offline-dark.png",
+    "path": "docs/portfolio/screenshots/rota-01b-schedule-offline-dark.png",
+    "timestamp": "00:02:49.000",
+    "sizeBytes": 261354,
+    "title": "Schedule Screen (Dark Mode & Offline Resilient State)",
+    "status": "VERIFIED_OK"
+  },
+  {
+    "filename": "rota-02-activity-feed.png",
+    "path": "docs/portfolio/screenshots/rota-02-activity-feed.png",
+    "timestamp": "00:00:43.000",
+    "sizeBytes": 269583,
+    "title": "Activity Feed & Audit Events",
+    "status": "VERIFIED_OK"
+  },
+  {
+    "filename": "rota-03-shift-swaps.png",
+    "path": "docs/portfolio/screenshots/rota-03-shift-swaps.png",
+    "timestamp": "00:01:02.500",
+    "sizeBytes": 98150,
+    "title": "Team Management - Active Shift Swaps",
+    "status": "VERIFIED_OK"
+  },
+  {
+    "filename": "rota-03b-team-members.png",
+    "path": "docs/portfolio/screenshots/rota-03b-team-members.png",
+    "timestamp": "00:00:59.000",
+    "sizeBytes": 201790,
+    "title": "Team Management - Team Members Roster",
+    "status": "VERIFIED_OK"
+  },
+  {
+    "filename": "rota-04-billing-subscription.png",
+    "path": "docs/portfolio/screenshots/rota-04-billing-subscription.png",
+    "timestamp": "00:01:19.500",
+    "sizeBytes": 294133,
+    "title": "Subscription & Billing Management",
+    "status": "VERIFIED_OK"
+  },
+  {
+    "filename": "rota-04b-settings-preferences.png",
+    "path": "docs/portfolio/screenshots/rota-04b-settings-preferences.png",
+    "timestamp": "00:01:09.000",
+    "sizeBytes": 299652,
+    "title": "Settings - Preferences, Timezones & Notifications",
+    "status": "VERIFIED_OK"
+  },
+  {
+    "filename": "rota-04c-settings-account.png",
+    "path": "docs/portfolio/screenshots/rota-04c-settings-account.png",
+    "timestamp": "00:01:07.000",
+    "sizeBytes": 226521,
+    "title": "Settings - Account & Organization",
+    "status": "VERIFIED_OK"
+  }
+]

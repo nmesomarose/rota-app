@@ -20,10 +20,14 @@ import { sendError, AppError } from '../utils/errors.ts';
 export const schedulingRouter = Router();
 
 const CreateShiftSchema = z.object({
-  branchId: z.string().uuid('Valid branch UUID is required'),
-  departmentId: z.string().uuid('Valid department UUID is required'),
-  startsAt: z.string().datetime({ message: 'startsAt must be a valid ISO 8601 UTC string' }),
-  endsAt: z.string().datetime({ message: 'endsAt must be a valid ISO 8601 UTC string' }),
+  branchId: z.string().uuid('Valid branch UUID is required').optional().nullable().or(z.literal('')),
+  departmentId: z.string().uuid('Valid department UUID is required').optional().nullable().or(z.literal('')),
+  startsAt: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: 'startsAt must be a valid ISO 8601 date string',
+  }),
+  endsAt: z.string().refine((val) => !isNaN(Date.parse(val)), {
+    message: 'endsAt must be a valid ISO 8601 date string',
+  }),
   timeZone: z.string().optional(),
   status: z.enum(['draft', 'review', 'published']).optional(),
 });
@@ -74,7 +78,7 @@ schedulingRouter.post(
   '/v1/scheduling/shifts',
   requireAuth,
   requireTenant,
-  requireRole(['owner', 'gm', 'supervisor']),
+  requireRole(['owner', 'co_owner', 'gm', 'supervisor']),
   async (req: Request, res: Response): Promise<void> => {
     const parsed = CreateShiftSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -105,7 +109,7 @@ schedulingRouter.patch(
   '/v1/scheduling/shifts/:id',
   requireAuth,
   requireTenant,
-  requireRole(['owner', 'gm', 'supervisor']),
+  requireRole(['owner', 'co_owner', 'gm', 'supervisor']),
   async (req: Request, res: Response): Promise<void> => {
     const shiftId = req.params.id as string;
     const parsed = UpdateShiftSchema.safeParse(req.body);
@@ -160,7 +164,7 @@ schedulingRouter.post(
   '/v1/scheduling/shifts/:id/assign',
   requireAuth,
   requireTenant,
-  requireRole(['owner', 'gm', 'supervisor']),
+  requireRole(['owner', 'co_owner', 'gm', 'supervisor']),
   async (req: Request, res: Response): Promise<void> => {
     const shiftId = req.params.id as string;
     const parsed = AssignWorkerSchema.safeParse(req.body);
@@ -201,7 +205,7 @@ schedulingRouter.delete(
   '/v1/scheduling/shifts/:id/assign/:membershipId',
   requireAuth,
   requireTenant,
-  requireRole(['owner', 'gm', 'supervisor']),
+  requireRole(['owner', 'co_owner', 'gm', 'supervisor']),
   async (req: Request, res: Response): Promise<void> => {
     const shiftId = req.params.id as string;
     const membershipId = req.params.membershipId as string;
@@ -209,7 +213,8 @@ schedulingRouter.delete(
       const result = await unassignWorker(
         req.user!.businessId!,
         shiftId,
-        membershipId
+        membershipId,
+        req.user!.role!
       );
       res.status(200).json(result);
     } catch (err: unknown) {
@@ -230,7 +235,7 @@ schedulingRouter.post(
   '/v1/scheduling/requirements',
   requireAuth,
   requireTenant,
-  requireRole(['owner', 'gm', 'supervisor']),
+  requireRole(['owner', 'co_owner', 'gm', 'supervisor']),
   async (req: Request, res: Response): Promise<void> => {
     const parsed = CreateRequirementSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -261,7 +266,7 @@ schedulingRouter.post(
   '/v1/scheduling/requirements/:id/generate',
   requireAuth,
   requireTenant,
-  requireRole(['owner', 'gm', 'supervisor']),
+  requireRole(['owner', 'co_owner', 'gm', 'supervisor']),
   async (req: Request, res: Response): Promise<void> => {
     const requirementId = req.params.id as string;
     const parsed = GenerateShiftsSchema.safeParse(req.body);
@@ -331,7 +336,7 @@ schedulingRouter.post(
   '/v1/scheduling/publish',
   requireAuth,
   requireTenant,
-  requireRole(['owner', 'gm', 'supervisor']),
+  requireRole(['owner', 'co_owner', 'gm', 'supervisor']),
   async (req: Request, res: Response): Promise<void> => {
     const parsed = PublishScheduleSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -389,7 +394,7 @@ schedulingRouter.get(
   '/v1/scheduling/conflicts',
   requireAuth,
   requireTenant,
-  requireRole(['owner', 'gm', 'supervisor']),
+  requireRole(['owner', 'co_owner', 'gm', 'supervisor']),
   async (req: Request, res: Response): Promise<void> => {
     const shiftId = req.query.shiftId;
     const membershipId = req.query.membershipId;

@@ -17,6 +17,23 @@ services:
       timeout: 5s
       retries: 5
 
+  rota-redis:
+    image: redis:7-alpine
+    container_name: rota-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - rota_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
 volumes:
   rota_pgdata:
     name: rota_pgdata
+  rota_redisdata:
+    name: rota_redisdata

@@ -66,6 +66,8 @@ export interface FxRateResult {
 }
 
 // Global test fixture state for deterministic simulation (AC-FX-06)
+let isManualOverride = false;
+
 let testFxFixtureState: {
   rate: number;
   source: string;
@@ -82,6 +84,7 @@ let testFxFixtureState: {
  * Configure FX fixture state for automated testing (AC-FX-03, AC-FX-06).
  */
 export function setFxFixtureState(state: Partial<typeof testFxFixtureState>): void {
+  isManualOverride = true;
   testFxFixtureState = {
     ...testFxFixtureState,
     ...state,
@@ -92,12 +95,22 @@ export function setFxFixtureState(state: Partial<typeof testFxFixtureState>): vo
  * Reset FX fixture state to default deterministic fixture.
  */
 export function resetFxFixtureState(): void {
+  isManualOverride = false;
   testFxFixtureState = {
     rate: 1550.0,
     source: 'cbn_indicative_fixture',
     retrievedAt: new Date(),
     unavailable: false,
   };
+}
+
+/**
+ * Manually refresh the indicative FX fixture timestamp.
+ */
+export function refreshFxFixture(): void {
+  isManualOverride = false;
+  testFxFixtureState.retrievedAt = new Date();
+  testFxFixtureState.unavailable = false;
 }
 
 const FX_STALENESS_THRESHOLD_MS = 30 * 60 * 1000; // 30 minutes (AC-FX-03)
@@ -126,6 +139,11 @@ export async function getFxRate(targetCurrency: string = 'NGN'): Promise<FxRateR
   }
 
   const now = Date.now();
+  // Auto-refresh the indicative fixture timestamp during runtime if not manually overridden by a test (AC-FX-03, AC-FX-06)
+  if (!isManualOverride && (now - testFxFixtureState.retrievedAt.getTime()) > 15 * 60 * 1000) {
+    testFxFixtureState.retrievedAt = new Date(now);
+  }
+
   const rateAge = now - testFxFixtureState.retrievedAt.getTime();
   const isStale = rateAge > FX_STALENESS_THRESHOLD_MS;
 

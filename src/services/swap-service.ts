@@ -1,5 +1,6 @@
 import { withTenantContext } from '../db/tenant-context.ts';
 import { emitActivityEvent } from './activity-service.ts';
+import { dispatchNotificationToRecipient } from './notification-service.ts';
 import { AppError } from '../utils/errors.ts';
 
 export interface RequestSwapInput {
@@ -49,11 +50,12 @@ export async function requestSwap(
     // 1. Verify requester membership and department
     const reqMemRes = await client.query<{
       id: string;
+      user_id: string;
       department_id: string;
       branch_id: string;
       status: string;
     }>(
-      `SELECT id, department_id, branch_id, status FROM memberships WHERE business_id = $1 AND id = $2`,
+      `SELECT id, user_id, department_id, branch_id, status FROM memberships WHERE business_id = $1 AND id = $2`,
       [businessId, requesterMembershipId]
     );
 
@@ -65,11 +67,12 @@ export async function requestSwap(
     // 2. Verify counterpart membership and department
     const cpartMemRes = await client.query<{
       id: string;
+      user_id: string;
       department_id: string;
       branch_id: string;
       status: string;
     }>(
-      `SELECT id, department_id, branch_id, status FROM memberships WHERE business_id = $1 AND id = $2`,
+      `SELECT id, user_id, department_id, branch_id, status FROM memberships WHERE business_id = $1 AND id = $2`,
       [businessId, input.counterpartMembershipId]
     );
 
@@ -266,25 +269,25 @@ export async function requestSwap(
       },
     });
 
-    // Notify counterpart in inbox
-    await client.query(
-      `INSERT INTO inbox_items (
-        business_id,
-        recipient_membership_id,
-        recipient_user_id,
-        category,
-        title,
-        body,
-        payload,
-        urgent
-      ) SELECT $1, m.id, m.user_id, 'swap', 'Shift Swap Request', 'A colleague requested to swap shifts with you.', $2, false
-        FROM memberships m WHERE m.business_id = $1 AND m.id = $3`,
-      [
-        businessId,
-        JSON.stringify({ swapId: swap.id, requesterMembershipId }),
-        input.counterpartMembershipId,
-      ]
-    );
+    // 9. Dispatch notification to counterpart (inbox + push per preferences)
+    await dispatchNotificationToRecipient(client, {
+      businessId,
+      recipientMembershipId: input.counterpartMembershipId,
+      recipientUserId: counterpartMem.user_id,
+      category: 'swaps',
+      title: 'Shift Swap Request',
+      body: 'A colleague requested to swap shifts with you.',
+      payload: {
+        swapId: swap.id,
+        requesterMembershipId,
+        requesterShiftId: input.requesterShiftId,
+        counterpartShiftId: input.counterpartShiftId,
+      },
+      mandatory: false,
+      startsAt: cpartShift.starts_at,
+      shiftId: input.counterpartShiftId,
+      eventId: `swap_req_${swap.id}`,
+    });
 
     return swap;
   });
@@ -370,6 +373,45 @@ export async function peerAcceptSwap(
       payload: { swapId: updated.id },
     });
 
+    // 5. Notify requester and managers that swap is accepted and awaiting manager approval
+    const reqMemRes = await client.query<{ id: string; user_id: string }>(
+      `SELECT id, user_id FROM memberships WHERE business_id = $1 AND id = $2`,
+      [businessId, updated.requester_membership_id]
+    );
+    if (reqMemRes.rows.length > 0) {
+      await dispatchNotificationToRecipient(client, {
+        businessId,
+        recipientMembershipId: reqMemRes.rows[0].id,
+        recipientUserId: reqMemRes.rows[0].user_id,
+        category: 'swaps',
+        title: 'Swap Request Accepted by Colleague',
+        body: 'Your colleague accepted the shift swap request. Awaiting manager approval.',
+        payload: { swapId: updated.id },
+        mandatory: false,
+        eventId: `swap_peer_accepted_${updated.id}`,
+      });
+    }
+
+    const mgrsRes = await client.query<{ id: string; user_id: string }>(
+      `SELECT id, user_id FROM memberships
+       WHERE business_id = $1 AND status = 'active'
+         AND (role IN ('owner', 'gm') OR (role = 'supervisor' AND (department_id = $2 OR department_id IS NULL)))`,
+      [businessId, updated.department_id]
+    );
+    for (const mgr of mgrsRes.rows) {
+      await dispatchNotificationToRecipient(client, {
+        businessId,
+        recipientMembershipId: mgr.id,
+        recipientUserId: mgr.user_id,
+        category: 'swaps',
+        title: 'Shift Swap Awaiting Approval',
+        body: 'A shift swap has been accepted by colleagues and is awaiting manager approval.',
+        payload: { swapId: updated.id },
+        mandatory: false,
+        eventId: `swap_awaiting_approval_${updated.id}_${mgr.id}`,
+      });
+    }
+
     return updated;
   });
 }
@@ -423,6 +465,25 @@ export async function peerRejectSwap(
       visibilityClass: 'swap',
       payload: { swapId: updated.id },
     });
+
+    // Notify requester that swap was declined by colleague
+    const reqMemRes = await client.query<{ id: string; user_id: string }>(
+      `SELECT id, user_id FROM memberships WHERE business_id = $1 AND id = $2`,
+      [businessId, updated.requester_membership_id]
+    );
+    if (reqMemRes.rows.length > 0) {
+      await dispatchNotificationToRecipient(client, {
+        businessId,
+        recipientMembershipId: reqMemRes.rows[0].id,
+        recipientUserId: reqMemRes.rows[0].user_id,
+        category: 'swaps',
+        title: 'Swap Request Declined',
+        body: 'Your shift swap request was declined by your colleague.',
+        payload: { swapId: updated.id },
+        mandatory: false,
+        eventId: `swap_peer_declined_${updated.id}`,
+      });
+    }
 
     return updated;
   });
@@ -554,6 +615,25 @@ export async function approveSwap(
       },
     });
 
+    // Notify both requester and counterpart of approval
+    const workersRes = await client.query<{ id: string; user_id: string }>(
+      `SELECT id, user_id FROM memberships WHERE business_id = $1 AND id IN ($2, $3)`,
+      [businessId, updated.requester_membership_id, updated.counterpart_membership_id]
+    );
+    for (const w of workersRes.rows) {
+      await dispatchNotificationToRecipient(client, {
+        businessId,
+        recipientMembershipId: w.id,
+        recipientUserId: w.user_id,
+        category: 'swaps',
+        title: 'Shift Swap Approved',
+        body: 'Your shift swap request has been approved by management.',
+        payload: { swapId: updated.id },
+        mandatory: false,
+        eventId: `swap_approved_${updated.id}_${w.id}`,
+      });
+    }
+
     return updated;
   });
 }
@@ -612,6 +692,29 @@ export async function cancelSwap(
       visibilityClass: 'swap',
       payload: { swapId: updated.id },
     });
+
+    // If rejected/cancelled by manager, notify the workers
+    const isManagerAction = normRole !== 'staff' || actorMembershipId !== swap.requester_membership_id;
+    if (isManagerAction) {
+      const workersRes = await client.query<{ id: string; user_id: string }>(
+        `SELECT id, user_id FROM memberships WHERE business_id = $1 AND id IN ($2, $3)`,
+        [businessId, updated.requester_membership_id, updated.counterpart_membership_id]
+      );
+      for (const w of workersRes.rows) {
+        if (w.id === actorMembershipId) continue;
+        await dispatchNotificationToRecipient(client, {
+          businessId,
+          recipientMembershipId: w.id,
+          recipientUserId: w.user_id,
+          category: 'swaps',
+          title: 'Shift Swap Rejected',
+          body: 'The shift swap request was rejected by management.',
+          payload: { swapId: updated.id },
+          mandatory: false,
+          eventId: `swap_rejected_${updated.id}_${w.id}`,
+        });
+      }
+    }
 
     return updated;
   });

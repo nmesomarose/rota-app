@@ -1,26 +1,52 @@
-# Environment files
+# Environment files & Local Configuration
 .env
 .env.local
 .env.*.local
 *.env
 !.env.example
 *.pem
+*.key
+*.cert
+*.credentials
+credentials.json
+service-account*.json
+
+# Database Backups & Dumps
+backups/
 *.dump
 *.sql.dump
+*.sql.tar*
+
+# Temporary Scratch Scripts & Transcripts
+scratch/
+diff_login.txt
+files.txt
+*.bak
+
+# Large Media & Video Artifacts
+*.mp4
+*.mov
+*.avi
+docs/demo video_files/
+demo video_files/
 
 # Dependencies
 node_modules/
 .pnp
 .pnp.js
 
-# Testing
+# Testing & Coverage
 coverage/
+*.lcov
 
 # Production & Build outputs
 dist/
 build/
 .expo/
 .next/
+*.tsbuildinfo
+.eslintcache
+.turbo/
 
 # Logs
 npm-debug.log*
@@ -28,7 +54,7 @@ yarn-debug.log*
 yarn-error.log*
 *.log
 
-# OS & Editor
+# OS & Editor Files
 .DS_Store
 Thumbs.db
 .vscode/
@@ -44,9 +70,4 @@ web-build/
 *.jks
 *.p8
 *.p12
-*.key
 *.mobileprovision
-
-# Cache
-.eslintcache
-.turbo/

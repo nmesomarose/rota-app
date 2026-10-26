@@ -18,12 +18,16 @@ describe('Tenant Isolation and Security Test Suite', () => {
   let branchBId: string;
   let deptAId: string;
 
-  // Admin client for test setup/teardown
+  // Admin clients for test setup/teardown and cross-shard validation
   let adminClient: pg.Client;
+  let adminClient1: pg.Client;
+  let adminClient2: pg.Client;
 
   before(async () => {
     adminClient = new pg.Client({ connectionString: env.DATABASE_URL });
-    await adminClient.connect();
+    adminClient1 = new pg.Client({ connectionString: env.SHARD_1_DATABASE_URL });
+    adminClient2 = new pg.Client({ connectionString: env.SHARD_2_DATABASE_URL });
+    await Promise.all([adminClient.connect(), adminClient1.connect(), adminClient2.connect()]);
 
     shardA = getShardIdForBusiness(bizAId);
     shardB = getShardIdForBusiness(bizBId);
@@ -63,14 +67,19 @@ describe('Tenant Isolation and Security Test Suite', () => {
   after(async () => {
     // Clean up test data using admin connection to cascade delete
     try {
+      const clientA = shardA === 'shard_1' ? adminClient1 : adminClient2;
+      const clientB = shardB === 'shard_1' ? adminClient1 : adminClient2;
+      await clientA.query('DELETE FROM businesses WHERE id = $1', [bizAId]).catch(() => {});
+      await clientB.query('DELETE FROM businesses WHERE id = $1', [bizBId]).catch(() => {});
+
       const schemaA = shardA === 'shard_1' ? env.SHARD_1_SCHEMA : env.SHARD_2_SCHEMA;
       const schemaB = shardB === 'shard_1' ? env.SHARD_1_SCHEMA : env.SHARD_2_SCHEMA;
-      await adminClient.query(`DELETE FROM ${schemaA}.businesses WHERE id = $1`, [bizAId]);
-      await adminClient.query(`DELETE FROM ${schemaB}.businesses WHERE id = $1`, [bizBId]);
+      await adminClient.query(`DELETE FROM ${schemaA}.businesses WHERE id = $1`, [bizAId]).catch(() => {});
+      await adminClient.query(`DELETE FROM ${schemaB}.businesses WHERE id = $1`, [bizBId]).catch(() => {});
     } catch (_err) {
       // Ignore teardown errors
     } finally {
-      await adminClient.end();
+      await Promise.allSettled([adminClient.end(), adminClient1.end(), adminClient2.end()]);
       await closeAllPools();
     }
   });
@@ -271,12 +280,12 @@ describe('Tenant Isolation and Security Test Suite', () => {
     it('Cross-business foreign key relationship is rejected', async () => {
       // Attempt to link Tenant A's department to Tenant B's branch
       // (Even if an attacker bypassed RLS, the composite FK constraint must reject it)
-      const schemaA = shardA === 'shard_1' ? env.SHARD_1_SCHEMA : env.SHARD_2_SCHEMA;
+      const clientA = shardA === 'shard_1' ? adminClient1 : adminClient2;
       await assert.rejects(
         async () => {
           // Run as admin to bypass RLS and test the DB-level composite FK constraint directly
-          await adminClient.query(
-            `INSERT INTO ${schemaA}.departments (business_id, branch_id, name) VALUES ($1, $2, $3)`,
+          await clientA.query(
+            `INSERT INTO departments (business_id, branch_id, name) VALUES ($1, $2, $3)`,
             [bizAId, branchBId, 'Malicious Cross-Tenant Department']
           );
         },
@@ -371,8 +380,8 @@ describe('Tenant Isolation and Security Test Suite', () => {
         ORDER BY table_name, column_name;
       `;
 
-      const res1 = await adminClient.query(query, [env.SHARD_1_SCHEMA]);
-      const res2 = await adminClient.query(query, [env.SHARD_2_SCHEMA]);
+      const res1 = await adminClient1.query(query, ['public']);
+      const res2 = await adminClient2.query(query, ['public']);
 
       assert.equal(res1.rows.length, res2.rows.length, 'Column count must match across shards');
       assert.deepEqual(res1.rows, res2.rows, 'Schema definitions must be perfectly symmetrical');
@@ -394,10 +403,10 @@ describe('Tenant Isolation and Security Test Suite', () => {
         ORDER BY tablename, policyname;
       `;
 
-      const rls1 = await adminClient.query(rlsQuery, [env.SHARD_1_SCHEMA]);
-      const rls2 = await adminClient.query(rlsQuery, [env.SHARD_2_SCHEMA]);
-      const pol1 = await adminClient.query(policyQuery, [env.SHARD_1_SCHEMA]);
-      const pol2 = await adminClient.query(policyQuery, [env.SHARD_2_SCHEMA]);
+      const rls1 = await adminClient1.query(rlsQuery, ['public']);
+      const rls2 = await adminClient2.query(rlsQuery, ['public']);
+      const pol1 = await adminClient1.query(policyQuery, ['public']);
+      const pol2 = await adminClient2.query(policyQuery, ['public']);
 
       assert.deepEqual(rls1.rows, rls2.rows, 'RLS enforcement flags must be identical across shards');
       assert.deepEqual(pol1.rows, pol2.rows, 'RLS policies must be identical across shards');
