@@ -816,7 +816,7 @@ export function LoginScreen({ navigation, route }: Props) {
                   setServerUrl(val);
                   setCustomApiUrl(val);
                 }}
-                placeholder="http://172.20.10.13:3000"
+                placeholder="https://rota-app-n8k8.onrender.com"
                 placeholderTextColor="#94A3B8"
                 autoCapitalize="none"
                 autoCorrect={false}
