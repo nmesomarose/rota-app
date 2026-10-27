@@ -209,22 +209,49 @@ export async function authenticateWithGoogle(
 
     if (emailRes.rows.length > 0) {
       const existingUser = emailRes.rows[0];
-      // Account exists with password and is not linked to Google
-      if (existingUser.password_hash) {
+
+      // Never automatically reactivate suspended or deactivated accounts
+      if (existingUser.status === 'suspended' || existingUser.status === 'deactivated') {
+        throw new AppError(401, 'ACCOUNT_INACTIVE', 'This account has been deactivated');
+      }
+
+      // Check if this is a pre-invited, unclaimed account
+      if (existingUser.status === 'invited') {
+        await controlPool.query(
+          `UPDATE users
+           SET google_id = $1,
+               auth_provider = 'google',
+               password_hash = NULL,
+               status = 'active',
+               name = COALESCE(name, $2),
+               email_verified_at = NOW(),
+               updated_at = NOW()
+           WHERE id = $3`,
+          [payload.sub, payload.name || normalizedEmail.split('@')[0], existingUser.id]
+        );
+        user = {
+          ...existingUser,
+          google_id: payload.sub,
+          name: existingUser.name || payload.name || normalizedEmail.split('@')[0],
+          status: 'active',
+          password_hash: null,
+        };
+      } else if (existingUser.password_hash) {
+        // Account exists with password and is not linked to Google: require password re-auth
         throw new AppError(
           409,
           'ACCOUNT_LINKING_REQUIRED',
           'An account already exists with this email address. Please sign in with your password to link your Google identity.',
           { email: normalizedEmail }
         );
+      } else {
+        // Link google_id if account had no password
+        await controlPool.query(
+          'UPDATE users SET google_id = $1, auth_provider = $2, updated_at = NOW() WHERE id = $3',
+          [payload.sub, 'google', existingUser.id]
+        );
+        user = { ...existingUser, google_id: payload.sub };
       }
-
-      // Link google_id if account had no password
-      await controlPool.query(
-        'UPDATE users SET google_id = $1, auth_provider = $2, updated_at = NOW() WHERE id = $3',
-        [payload.sub, 'google', existingUser.id]
-      );
-      user = { ...existingUser, google_id: payload.sub };
     } else {
       // Create new Google-authenticated user (PRD 517: password_hash is null for Google-only)
       const insertRes = await controlPool.query<{

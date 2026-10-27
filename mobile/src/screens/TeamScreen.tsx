@@ -19,6 +19,7 @@ import { api, ApiError } from '../services/api.ts';
 import { getActiveBusiness, type StoredBusiness } from '../services/storage.ts';
 import { typography, spacing, radii, shadows, type ColorTokens } from '../theme/tokens.ts';
 import { useTheme } from '../theme/ThemeContext.tsx';
+import { InvitationConfirmationModal } from '../components/InvitationConfirmationModal.tsx';
 
 interface SwapRequest {
   id: string;
@@ -76,6 +77,16 @@ export function TeamScreen() {
   const [inviteRole, setInviteRole] = useState<'owner' | 'co_owner' | 'gm' | 'supervisor' | 'staff'>('staff');
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
+
+  // Invitation Confirmation Modal state
+  const [confirmedInvite, setConfirmedInvite] = useState<{
+    email: string;
+    role: string;
+    status: string;
+    token?: string;
+    expiresAt?: string;
+  } | null>(null);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
   // Role Change Modal state
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
@@ -150,17 +161,21 @@ export function TeamScreen() {
     setInviteError(null);
 
     try {
-      await api.organizations.inviteMember(currentBusiness.id, {
+      const res = await api.organizations.inviteMember(currentBusiness.id, {
         email: trimmedEmail,
         name: inviteName.trim() || undefined,
         role: inviteRole,
       });
 
       setShowInviteModal(false);
-      setInviteEmail('');
-      setInviteName('');
-      setInviteRole('staff');
-      Alert.alert('Success', `Invited ${trimmedEmail} as ${getRoleLabel(inviteRole)}.`);
+      setConfirmedInvite({
+        email: trimmedEmail,
+        role: inviteRole,
+        status: res.invitation?.status || 'pending',
+        token: res.invitation?.token,
+        expiresAt: res.invitation?.expiresAt,
+      });
+      setShowConfirmationModal(true);
       loadMembers(currentBusiness.id);
     } catch (err: unknown) {
       const msg = err instanceof ApiError ? err.message : 'Failed to invite team member';
@@ -168,6 +183,27 @@ export function TeamScreen() {
     } finally {
       setInviting(false);
     }
+  };
+
+  const handleBackToTeamFromConfirmation = () => {
+    setShowConfirmationModal(false);
+    setConfirmedInvite(null);
+    setInviteEmail('');
+    setInviteName('');
+    setInviteRole('staff');
+    if (currentBusiness?.id) {
+      loadMembers(currentBusiness.id);
+    }
+  };
+
+  const handleInviteAnotherFromConfirmation = () => {
+    setShowConfirmationModal(false);
+    setConfirmedInvite(null);
+    setInviteEmail('');
+    setInviteName('');
+    setInviteRole('staff');
+    setInviteError(null);
+    setShowInviteModal(true);
   };
 
   const handleUpdateRole = async (newRole: string) => {
@@ -706,6 +742,21 @@ export function TeamScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Polished Invitation Confirmation Modal */}
+      {confirmedInvite && (
+        <InvitationConfirmationModal
+          visible={showConfirmationModal}
+          email={confirmedInvite.email}
+          role={confirmedInvite.role}
+          status={confirmedInvite.status}
+          businessName={currentBusiness?.name}
+          token={confirmedInvite.token}
+          expiresAt={confirmedInvite.expiresAt}
+          onBackToTeam={handleBackToTeamFromConfirmation}
+          onInviteAnother={handleInviteAnotherFromConfirmation}
+        />
+      )}
     </View>
   );
 }

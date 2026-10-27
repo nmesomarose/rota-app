@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types.ts';
 import { api, ApiError } from '../services/api.ts';
@@ -21,6 +22,8 @@ import {
   setAccessToken,
   setActiveBusiness,
   clearSession,
+  getUserProfile,
+  type StoredUser,
 } from '../services/storage.ts';
 import { clearAllOfflineCache } from '../services/offline-cache.ts';
 import { clearAllTenantQueries } from '../services/query-client.ts';
@@ -43,6 +46,7 @@ export function BusinessSelectScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
 
+  const [currentUser, setCurrentUser] = useState<StoredUser | null>(null);
   const [memberships, setMemberships] = useState<MembershipItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [switchingId, setSwitchingId] = useState<string | null>(null);
@@ -61,8 +65,14 @@ export function BusinessSelectScreen({ navigation }: Props) {
     setLoading(true);
     setErrorMessage(null);
     try {
-      const data = await api.organizations.getMemberships();
+      const [data, profile] = await Promise.all([
+        api.organizations.getMemberships(),
+        getUserProfile().catch(() => null),
+      ]);
       setMemberships(data.memberships);
+      if (profile) {
+        setCurrentUser(profile);
+      }
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         setErrorMessage(err.message);
@@ -191,13 +201,68 @@ export function BusinessSelectScreen({ navigation }: Props) {
             contentContainerStyle={styles.onboardScroll}
             keyboardShouldPersistTaps="handled"
           >
+            {/* Signed-in Identity Card (FR-AUTH-002, Task 3) */}
+            <View style={styles.signedInCard}>
+              <View style={styles.signedInRow}>
+                <View style={styles.userInitialsCircle}>
+                  <Text style={styles.userInitialsText}>
+                    {(currentUser?.name || currentUser?.email || 'U').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.signedInMeta}>
+                  <View style={styles.signedInBadge}>
+                    <Text style={styles.signedInBadgeText}>Signed In</Text>
+                  </View>
+                  <Text style={styles.signedInEmailText} numberOfLines={1}>
+                    {currentUser?.email || 'Authenticated User'}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.signedInHelpText}>
+                Your account is active, but you are not currently a member of any workspace.
+              </Text>
+            </View>
+
+            {/* Team Invitation Card (Task 4) */}
+            <View style={styles.invitationCard}>
+              <View style={styles.invitationHeaderRow}>
+                <View style={styles.invitationIconCircle}>
+                  <Ionicons name="mail-unread-outline" size={24} color={colors.primaryTeal} />
+                </View>
+                <View style={styles.invitationTextContainer}>
+                  <Text style={styles.invitationCardTitle}>Received an Invitation?</Text>
+                  <Text style={styles.invitationCardSubtitle}>
+                    If your employer or manager invited you to join their team, enter your invitation code to access your workspace.
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.invitationActionButton}
+                onPress={() => navigation.navigate('AcceptInvitation', {})}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Enter Invitation Code"
+              >
+                <Text style={styles.invitationActionButtonText}>Enter Invitation Code →</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Divider */}
+            <View style={styles.sectionDividerRow}>
+              <View style={styles.sectionDividerLine} />
+              <Text style={styles.sectionDividerText}>OR CREATE WORKSPACE</Text>
+              <View style={styles.sectionDividerLine} />
+            </View>
+
+            {/* Business Creation Card */}
             <View style={styles.onboardCard}>
               <View style={styles.iconCircle}>
                 <Text style={styles.iconText}>🏢</Text>
               </View>
               <Text style={styles.onboardTitle}>Create Your Business</Text>
               <Text style={styles.onboardSubtitle}>
-                You don't have any active organizations yet. Set up your business now to start scheduling shifts as the Owner.
+                Starting your own team? Set up your business now to start scheduling shifts as the Owner.
               </Text>
 
               <View style={styles.inputGroup}>
@@ -276,6 +341,24 @@ export function BusinessSelectScreen({ navigation }: Props) {
               }}
               ListFooterComponent={
                 <View style={styles.listFooter}>
+                  <TouchableOpacity
+                    style={styles.joinInviteButton}
+                    onPress={() => navigation.navigate('AcceptInvitation', {})}
+                    activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Have an invite code? Join another team"
+                  >
+                    <Ionicons
+                      name="mail-open-outline"
+                      size={18}
+                      color={colors.primaryTeal}
+                      style={{ marginRight: 8 }}
+                    />
+                    <Text style={styles.joinInviteButtonText}>
+                      Have an invite code? Join another team
+                    </Text>
+                  </TouchableOpacity>
+
                   <TouchableOpacity
                     style={styles.addBizButton}
                     onPress={() => {
@@ -630,6 +713,150 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     color: colors.textSecondary,
     marginBottom: 18,
     lineHeight: 18,
+  },
+  // Signed-in banner styles (Task 3)
+  signedInCard: {
+    backgroundColor: isDark ? 'rgba(30, 41, 59, 0.7)' : '#F1F5F9',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: isDark ? 'rgba(51, 65, 85, 0.6)' : '#E2E8F0',
+  },
+  signedInRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  userInitialsCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primaryTeal,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  userInitialsText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  signedInMeta: {
+    flex: 1,
+  },
+  signedInBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: isDark ? 'rgba(45, 212, 191, 0.15)' : '#CCFBF1',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginBottom: 4,
+  },
+  signedInBadgeText: {
+    color: isDark ? '#2DD4BF' : '#0D9488',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  signedInEmailText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  signedInHelpText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  // Invitation card styles (Task 4)
+  invitationCard: {
+    backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : '#FFFFFF',
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 16,
+    borderWidth: 1.5,
+    borderColor: colors.primaryTeal,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: isDark ? 0.3 : 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  invitationHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 14,
+  },
+  invitationIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: isDark ? 'rgba(45, 212, 191, 0.15)' : '#CCFBF1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  invitationTextContainer: {
+    flex: 1,
+  },
+  invitationCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  invitationCardSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  invitationActionButton: {
+    backgroundColor: colors.primaryTeal,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  invitationActionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  sectionDividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 14,
+    gap: 12,
+  },
+  sectionDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: isDark ? '#334155' : '#E2E8F0',
+  },
+  sectionDividerText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textMuted,
+    letterSpacing: 0.8,
+  },
+  joinInviteButton: {
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.primaryTeal,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    backgroundColor: isDark ? 'rgba(45, 212, 191, 0.08)' : '#F0FDFA',
+    marginBottom: 12,
+  },
+  joinInviteButtonText: {
+    color: colors.primaryTeal,
+    fontSize: 14,
+    fontWeight: '600',
   },
   });
 }

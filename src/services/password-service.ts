@@ -26,11 +26,16 @@ export async function hashPassword(plainText: string): Promise<string> {
 /**
  * Verifies a plaintext password against a stored Argon2id hash.
  * Returns true if valid, false otherwise.
+ * Safely returns false if the user has no password set (e.g. Google-only account).
  */
-export async function verifyPassword(hash: string, plainText: string): Promise<boolean> {
+export async function verifyPassword(hash: string | null | undefined, plainText: string): Promise<boolean> {
+  if (!hash || !plainText) {
+    return false;
+  }
   try {
     return await argon2.verify(hash, plainText);
   } catch (_err) {
     return false;
   }
 }
+

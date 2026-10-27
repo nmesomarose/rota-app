@@ -318,12 +318,30 @@ export function LoginScreen({ navigation, route }: Props) {
       }
     } catch (err: unknown) {
       if (err instanceof ApiError) {
-        if (err.statusCode === 401) {
-          setErrorMessage('Invalid email or password.');
+        if (err.code === 'ACCOUNT_INACTIVE') {
+          setErrorMessage(
+            'This account is inactive or pending invitation. If you received a team invite, open your invitation link or tap "Continue with Google" if your invite email is a Google account.'
+          );
+        } else if (err.code === 'INVALID_CREDENTIALS') {
+          setErrorMessage(
+            'Invalid email or password. If you registered with Google, please use "Continue with Google" above.'
+          );
+        } else if (err.code === 'ACCOUNT_LINKING_REQUIRED') {
+          setErrorMessage(
+            'An account already exists with this email address. Please sign in with your password to link your Google identity.'
+          );
+        } else if (err.code === 'EMAIL_ALREADY_EXISTS') {
+          setErrorMessage(
+            'An account with this email already exists. Switch to Sign In above to log in with your password or Continue with Google.'
+          );
         } else if (err.code === 'BUSINESS_CONTEXT_REQUIRED') {
           navigation.replace('BusinessSelect');
+        } else if (err.statusCode === 401) {
+          setErrorMessage(
+            err.message || 'Authentication failed. Please verify your email and password.'
+          );
         } else {
-          setErrorMessage(err.message);
+          setErrorMessage(err.message || 'Authentication failed. Please verify your details.');
         }
       } else {
         setErrorMessage('Unable to connect to Rota backend. Please verify your connection.');
@@ -580,6 +598,17 @@ export function LoginScreen({ navigation, route }: Props) {
             <Text style={styles.orDividerText}>or continue with email</Text>
             <View style={styles.orDividerLine} />
           </View>
+
+          {/* Google Sign-in Guidance Note */}
+          {!isSignUp ? (
+            <Text style={styles.authGuidanceHint}>
+              Registered with Google? Tap "Continue with Google" above. Password sign-in is for accounts with an established password.
+            </Text>
+          ) : (
+            <Text style={styles.authGuidanceHint}>
+              Tip: You can also tap "Continue with Google" to create your account instantly.
+            </Text>
+          )}
 
           {/* Sign Up: Full Name Input (ONLY on Create Account Page) */}
           {isSignUp && (
@@ -1578,6 +1607,14 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
       fontSize: 12,
       fontWeight: '500',
       color: colors.textSecondary,
+    },
+    authGuidanceHint: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginBottom: 16,
+      lineHeight: 17,
+      paddingHorizontal: 8,
     },
     modalErrorBanner: {
       backgroundColor: colors.errorLight,

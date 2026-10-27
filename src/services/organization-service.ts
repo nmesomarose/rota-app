@@ -414,12 +414,11 @@ export async function inviteOrganizationMember(
         targetUserName = existingUser.rows[0].name;
       }
     } else {
-      // Create invited placeholder user in control plane with temporary initial hash
-      const placeholderHash = await hashPassword(randomUUID());
+      // Create invited placeholder user in control plane without unusable password hash (password_hash = NULL)
       await controlPool.query(
         `INSERT INTO users (email, password_hash, name, status)
-         VALUES ($1, $2, $3, 'invited')`,
-        [trimmedEmail, placeholderHash, targetUserName]
+         VALUES ($1, NULL, $2, 'invited')`,
+        [trimmedEmail, targetUserName]
       );
     }
 

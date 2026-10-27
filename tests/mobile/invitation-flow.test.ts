@@ -295,4 +295,330 @@ describe('Mobile Invitation Acceptance Flow Verification (FR-AUTH-007, AC-INV-01
       );
     });
   });
+
+  describe('6. Workspace Guidance & Empty State Redemption (BusinessSelectScreen.tsx & AcceptInvitationScreen.tsx)', () => {
+    it('displays authenticated user identity banner in empty state (Task 3)', () => {
+      const screenCode = readSource('mobile/src/screens/BusinessSelectScreen.tsx');
+
+      assert.ok(
+        screenCode.includes('styles.signedInCard'),
+        'BusinessSelectScreen must render signedInCard in empty state'
+      );
+      assert.ok(
+        screenCode.includes('styles.userInitialsCircle'),
+        'BusinessSelectScreen must render user initials avatar'
+      );
+      assert.ok(
+        screenCode.includes('currentUser?.email || \'Authenticated User\''),
+        'BusinessSelectScreen must display signed-in user email or fallback'
+      );
+      assert.ok(
+        screenCode.includes('Your account is active, but you are not currently a member of any workspace.'),
+        'BusinessSelectScreen must explain user is authenticated with 0 memberships'
+      );
+    });
+
+    it('provides clear invitation code redemption card on empty state (Task 4)', () => {
+      const screenCode = readSource('mobile/src/screens/BusinessSelectScreen.tsx');
+
+      assert.ok(
+        screenCode.includes('Received an Invitation?'),
+        'BusinessSelectScreen must display Received an Invitation card title'
+      );
+      assert.ok(
+        screenCode.includes("navigation.navigate('AcceptInvitation', {})"),
+        'BusinessSelectScreen must provide navigation action to AcceptInvitation'
+      );
+      assert.ok(
+        screenCode.includes('Enter Invitation Code →'),
+        'BusinessSelectScreen must render Enter Invitation Code button'
+      );
+    });
+
+    it('provides invitation redemption action in multi-business list footer (Task 8)', () => {
+      const screenCode = readSource('mobile/src/screens/BusinessSelectScreen.tsx');
+
+      assert.ok(
+        screenCode.includes('Have an invite code? Join another team'),
+        'BusinessSelectScreen list footer must offer Join another team with invite code'
+      );
+      assert.ok(
+        screenCode.includes('styles.joinInviteButton'),
+        'BusinessSelectScreen must style joinInviteButton'
+      );
+    });
+
+    it('provides clear recovery actions on expired or already used invitations (Task 10)', () => {
+      const screenCode = readSource('mobile/src/screens/AcceptInvitationScreen.tsx');
+
+      assert.ok(
+        screenCode.includes("errorCode === 'INVITATION_ALREADY_USED'"),
+        'AcceptInvitationScreen must handle INVITATION_ALREADY_USED'
+      );
+      assert.ok(
+        screenCode.includes("Go to Your Workspaces →"),
+        'AcceptInvitationScreen must offer Go to Your Workspaces action on already-used invite'
+      );
+      assert.ok(
+        screenCode.includes("errorCode === 'INVITATION_EXPIRED'"),
+        'AcceptInvitationScreen must handle INVITATION_EXPIRED'
+      );
+      assert.ok(
+        screenCode.includes("Try another link or token"),
+        'AcceptInvitationScreen must offer reset action on expired invite'
+      );
+    });
+
+    it('provides Google sign-in guidance for unauthenticated invitees', () => {
+      const screenCode = readSource('mobile/src/screens/AcceptInvitationScreen.tsx');
+
+      assert.ok(
+        screenCode.includes('If this email is registered with Google, tap "Sign In to Accept" and choose "Continue with Google".'),
+        'AcceptInvitationScreen must advise Google-registered invitees to use Continue with Google'
+      );
+    });
+  });
+
+  describe('7. Polished Team Invitation Confirmation Experience (InvitationConfirmationModal.tsx & TeamScreen.tsx)', () => {
+    it('defines InvitationConfirmationModal with all required elements', () => {
+      const modalCode = readSource('mobile/src/components/InvitationConfirmationModal.tsx');
+
+      // Success icon / illustration
+      assert.ok(
+        modalCode.includes('name="mail-open"') && modalCode.includes('iconCircle'),
+        'InvitationConfirmationModal must render success illustration and mail-open icon'
+      );
+      assert.ok(
+        modalCode.includes('miniCheckBadge'),
+        'InvitationConfirmationModal must render mini check badge on illustration'
+      );
+
+      // Confirmation heading
+      assert.ok(
+        modalCode.includes('Invitation Created</Text>'),
+        'InvitationConfirmationModal must render clear "Invitation Created" heading'
+      );
+
+      // Invited member email
+      assert.ok(
+        modalCode.includes('Invited Member</Text>') && modalCode.includes('{email}'),
+        'InvitationConfirmationModal must render invited member email in metadata card'
+      );
+
+      // Assigned role
+      assert.ok(
+        modalCode.includes('Assigned Role</Text>') && modalCode.includes('roleBadge'),
+        'InvitationConfirmationModal must render assigned role badge and label'
+      );
+
+      // Pending invitation status
+      assert.ok(
+        modalCode.includes('Pending Acceptance</Text>') && modalCode.includes('pendingBadge'),
+        'InvitationConfirmationModal must prominently render Pending Acceptance status'
+      );
+
+      // Primary and secondary actions
+      assert.ok(
+        modalCode.includes('Back to Team</Text>'),
+        'InvitationConfirmationModal must provide "Back to Team" primary action'
+      );
+      assert.ok(
+        modalCode.includes('Invite Another Member</Text>'),
+        'InvitationConfirmationModal must provide "Invite Another Member" secondary action'
+      );
+    });
+
+    it('distinguishes invitation creation from email delivery and acceptance (Task 7)', () => {
+      const modalCode = readSource('mobile/src/components/InvitationConfirmationModal.tsx');
+
+      assert.ok(
+        modalCode.includes('Next Steps for Invitee</Text>'),
+        'InvitationConfirmationModal must render informational section for next steps'
+      );
+      assert.ok(
+        modalCode.includes('The recipient must open the link and sign in using Google or their Rota password to join this workspace.'),
+        'InvitationConfirmationModal must explain recipient must sign in to activate membership'
+      );
+      assert.ok(
+        !modalCode.includes('Member has joined') && !modalCode.includes('Email delivered and accepted'),
+        'InvitationConfirmationModal must never claim member has already joined or accepted'
+      );
+    });
+
+    it('implements subtle, accessible animation on mount (Task 4)', () => {
+      const modalCode = readSource('mobile/src/components/InvitationConfirmationModal.tsx');
+
+      assert.ok(
+        modalCode.includes('Animated.spring(scaleAnim'),
+        'InvitationConfirmationModal must animate scale with Animated.spring'
+      );
+      assert.ok(
+        modalCode.includes('Animated.timing(fadeAnim'),
+        'InvitationConfirmationModal must animate opacity with Animated.timing'
+      );
+      assert.ok(
+        modalCode.includes('useNativeDriver: true'),
+        'Animations must use hardware acceleration via useNativeDriver'
+      );
+    });
+
+    it('ensures small Android screen responsiveness and accessibility (Tasks 5 & 6)', () => {
+      const modalCode = readSource('mobile/src/components/InvitationConfirmationModal.tsx');
+
+      assert.ok(
+        modalCode.includes('<ScrollView'),
+        'InvitationConfirmationModal must use ScrollView for small screen safety'
+      );
+      assert.ok(
+        modalCode.includes('minHeight: 48'),
+        'Buttons must enforce minimum 48dp touch targets for accessibility'
+      );
+      assert.ok(
+        modalCode.includes('accessibilityRole="button"') && modalCode.includes('accessibilityLabel="Back to Team"'),
+        'Primary button must declare accessible button role and Back to Team label'
+      );
+      assert.ok(
+        modalCode.includes('accessibilityLabel="Invite Another Member"'),
+        'Secondary button must declare accessible Invite Another Member label'
+      );
+    });
+
+    it('integrates InvitationConfirmationModal into TeamScreen.tsx replacing bare Alert.alert', () => {
+      const teamCode = readSource('mobile/src/screens/TeamScreen.tsx');
+
+      assert.ok(
+        teamCode.includes("import { InvitationConfirmationModal } from '../components/InvitationConfirmationModal.tsx'"),
+        'TeamScreen must import InvitationConfirmationModal'
+      );
+      assert.ok(
+        teamCode.includes('const [confirmedInvite, setConfirmedInvite] = useState'),
+        'TeamScreen must maintain confirmedInvite state'
+      );
+      assert.ok(
+        teamCode.includes('const [showConfirmationModal, setShowConfirmationModal] = useState(false)'),
+        'TeamScreen must maintain showConfirmationModal state'
+      );
+      assert.ok(
+        teamCode.includes('setShowConfirmationModal(true)'),
+        'handleInviteSubmit must trigger confirmation modal upon successful invitation creation'
+      );
+      assert.ok(
+        !teamCode.includes("Alert.alert('Success', `Invited ${trimmedEmail}"),
+        'TeamScreen must not show bare Alert.alert for invitation confirmation'
+      );
+      assert.ok(
+        teamCode.includes('<InvitationConfirmationModal'),
+        'TeamScreen must render InvitationConfirmationModal in JSX'
+      );
+    });
+
+    it('handles Back to Team and Invite Another Member workflows cleanly', () => {
+      const teamCode = readSource('mobile/src/screens/TeamScreen.tsx');
+
+      assert.ok(
+        teamCode.includes('const handleBackToTeamFromConfirmation = () => {'),
+        'TeamScreen must implement handleBackToTeamFromConfirmation'
+      );
+      assert.ok(
+        teamCode.includes('const handleInviteAnotherFromConfirmation = () => {'),
+        'TeamScreen must implement handleInviteAnotherFromConfirmation'
+      );
+      assert.ok(
+        teamCode.includes('setShowInviteModal(true)'),
+        'Invite Another Member action must reopen the invite modal for rapid member entry'
+      );
+    });
+  });
+
+  describe('8. Authentication & Invitation Security Regression Suite (Tasks 1-5, 8, 9)', () => {
+    it('verifies inviteOrganizationMember creates placeholder user without unusable password hash (Task 1)', () => {
+      const orgServiceCode = readSource('src/services/organization-service.ts');
+
+      assert.ok(
+        orgServiceCode.includes("INSERT INTO users (email, password_hash, name, status)\n         VALUES ($1, NULL, $2, 'invited')"),
+        'inviteOrganizationMember must set password_hash = NULL for invited placeholders'
+      );
+      assert.ok(
+        !orgServiceCode.includes("placeholderHash = await hashPassword(randomUUID())"),
+        'inviteOrganizationMember must never generate unusable random UUID password hashes'
+      );
+    });
+
+    it('verifies authenticateWithGoogle allows genuinely invited accounts to authenticate via Google (Task 2)', () => {
+      const googleServiceCode = readSource('src/services/google-auth-service.ts');
+
+      assert.ok(
+        googleServiceCode.includes("if (existingUser.status === 'invited')"),
+        'authenticateWithGoogle must explicitly check for invited user status'
+      );
+      assert.ok(
+        googleServiceCode.includes("SET google_id = $1,\n               auth_provider = 'google',\n               password_hash = NULL,\n               status = 'active'"),
+        'authenticateWithGoogle must activate invited user, bind google_id, and ensure password_hash is NULL'
+      );
+    });
+
+    it('preserves password re-authentication for existing active password accounts (Task 3)', () => {
+      const googleServiceCode = readSource('src/services/google-auth-service.ts');
+
+      assert.ok(
+        googleServiceCode.includes("else if (existingUser.password_hash) {\n        // Account exists with password and is not linked to Google: require password re-auth\n        throw new AppError(\n          409,\n          'ACCOUNT_LINKING_REQUIRED'"),
+        'authenticateWithGoogle must preserve ACCOUNT_LINKING_REQUIRED (409) for active password accounts'
+      );
+    });
+
+    it('never automatically reactivates suspended or deactivated accounts (Task 4)', () => {
+      const googleServiceCode = readSource('src/services/google-auth-service.ts');
+
+      assert.ok(
+        googleServiceCode.includes("if (existingUser.status === 'suspended' || existingUser.status === 'deactivated') {\n        throw new AppError(401, 'ACCOUNT_INACTIVE'"),
+        'authenticateWithGoogle must immediately reject suspended or deactivated accounts with 401 ACCOUNT_INACTIVE'
+      );
+    });
+
+    it('enforces single-use, email-bound, and unexpired token rules on invitation acceptance (Task 5)', () => {
+      const orgServiceCode = readSource('src/services/organization-service.ts');
+
+      assert.ok(
+        orgServiceCode.includes("if (invitation.status === 'accepted' || invitation.status === 'revoked') {\n      throw new AppError(400, 'INVITATION_ALREADY_USED'"),
+        'acceptOrganizationInvitation must reject used or revoked tokens'
+      );
+      assert.ok(
+        orgServiceCode.includes("if (new Date(invitation.expires_at) < new Date() || invitation.status === 'expired') {\n      await client.query(\n        `UPDATE invitations SET status = 'expired'"),
+        'acceptOrganizationInvitation must enforce expiration check and update status'
+      );
+      assert.ok(
+        orgServiceCode.includes("if (userEmail !== inviteEmail) {\n      throw new AppError(\n        403,\n        'FORBIDDEN'"),
+        'acceptOrganizationInvitation must strictly enforce email binding'
+      );
+    });
+
+    it('guards against duplicate active memberships on acceptance (Task 9)', () => {
+      const orgServiceCode = readSource('src/services/organization-service.ts');
+
+      assert.ok(
+        orgServiceCode.includes("if (existingMember.rowCount && existingMember.rows[0].status === 'active') {\n      throw new AppError(409, 'MEMBER_ALREADY_EXISTS'"),
+        'acceptOrganizationInvitation must reject existing active members with 409 MEMBER_ALREADY_EXISTS'
+      );
+    });
+
+    it('protects invitation tokens from UI exposure in confirmation and acceptance screens (Tasks 8 & Constraints)', () => {
+      const confirmationCode = readSource('mobile/src/components/InvitationConfirmationModal.tsx');
+      const acceptCode = readSource('mobile/src/screens/AcceptInvitationScreen.tsx');
+
+      assert.ok(
+        !confirmationCode.includes('tokenBox') && !confirmationCode.includes('tokenInput'),
+        'InvitationConfirmationModal must not render tokenBox or tokenInput'
+      );
+      assert.ok(
+        confirmationCode.includes('deliveryBadgeCard') && confirmationCode.includes('Protected Invitation Delivery'),
+        'InvitationConfirmationModal must display protected delivery status badge'
+      );
+      assert.ok(
+        acceptCode.includes('successGlowRing') && acceptCode.includes('successDetailsBox'),
+        'AcceptInvitationScreen must render polished success confirmation card upon acceptance'
+      );
+    });
+  });
 });
+
+

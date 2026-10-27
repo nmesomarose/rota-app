@@ -544,7 +544,21 @@ export const api = {
         branchId?: string;
       }
     ) =>
-      apiRequest<{ member: unknown }>(`/v1/organizations/${businessId}/members/invite`, {
+      apiRequest<{
+        invitation: {
+          id: string;
+          businessId: string;
+          email: string;
+          role: string;
+          branchId: string | null;
+          departmentId: string | null;
+          status: string;
+          expiresAt: string;
+          createdAt: string;
+          token?: string;
+        };
+        member?: unknown;
+      }>(`/v1/organizations/${businessId}/members/invite`, {
         method: 'POST',
         body: JSON.stringify(data),
       }),

@@ -414,4 +414,50 @@ describe('Native Mobile Google Sign-In Verification (FR-AUTH-002, FR-AUTH-011, A
       );
     });
   });
+
+  describe('6. Authentication Guidance & Error Clarity (LoginScreen.tsx - Tasks 1 & 2)', () => {
+    it('renders guidance hint explaining Continue with Google for registered Google accounts', () => {
+      const loginCode = readSource('mobile/src/screens/LoginScreen.tsx');
+
+      assert.ok(
+        loginCode.includes('styles.authGuidanceHint'),
+        'LoginScreen must render authGuidanceHint container'
+      );
+      assert.ok(
+        loginCode.includes('Registered with Google? Tap "Continue with Google" above.'),
+        'LoginScreen must explain Google sign-in on login tab'
+      );
+      assert.ok(
+        loginCode.includes('Tip: You can also tap "Continue with Google" to create your account instantly.'),
+        'LoginScreen must explain Google sign-up on registration tab'
+      );
+    });
+
+    it('guides Google users on 401 while preserving generic backend authentication error (Task 1 & 2)', () => {
+      const loginCode = readSource('mobile/src/screens/LoginScreen.tsx');
+
+      assert.ok(
+        loginCode.includes("err.statusCode === 401"),
+        'LoginScreen must intercept 401 error status'
+      );
+      assert.ok(
+        loginCode.includes('Invalid email or password. If you registered with Google, please use "Continue with Google" above.'),
+        'LoginScreen must guide Google users on 401 without weakening backend anti-enumeration'
+      );
+    });
+
+    it('guides existing account owners on 409 registration conflict', () => {
+      const loginCode = readSource('mobile/src/screens/LoginScreen.tsx');
+
+      assert.ok(
+        loginCode.includes("err.code === 'EMAIL_ALREADY_EXISTS'"),
+        'LoginScreen must intercept EMAIL_ALREADY_EXISTS'
+      );
+      assert.ok(
+        loginCode.includes('An account with this email already exists. Switch to Sign In above to log in with your password or Continue with Google.'),
+        'LoginScreen must provide actionable direction on email conflict'
+      );
+    });
+  });
 });
+

@@ -257,14 +257,46 @@ export function AcceptInvitationScreen({ navigation, route }: Props) {
         </Text>
       </View>
 
-      {/* Success Banner */}
-      {successMessage && (
-        <View style={styles.successCard}>
-          <Ionicons name="checkmark-circle" size={28} color={colors.success} />
-          <Text style={styles.successTitle}>{successMessage}</Text>
-          <Text style={styles.successSubtitle}>Opening schedule workspace...</Text>
+      {/* Polished Invitation Acceptance Success Confirmation Experience */}
+      {successMessage ? (
+        <View style={styles.card}>
+          <View style={styles.successGlowRing}>
+            <Ionicons name="checkmark-circle" size={44} color={colors.success} />
+          </View>
+          <Text style={styles.successHeading}>{successMessage}</Text>
+          <Text style={styles.successSubheading}>
+            Your team membership is now active.
+          </Text>
+
+          {invitation && (
+            <View style={styles.successDetailsBox}>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Member Email</Text>
+                <Text style={styles.detailValue}>{invitation.email}</Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Assigned Role</Text>
+                <Text style={styles.detailValue}>
+                  {invitation.role.charAt(0).toUpperCase() + invitation.role.slice(1)}
+                </Text>
+              </View>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Membership Status</Text>
+                <View style={styles.activeMembershipBadge}>
+                  <Ionicons name="checkmark-sharp" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+                  <Text style={styles.activeMembershipText}>Active Member</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          <View style={styles.successLoadingRow}>
+            <ActivityIndicator size="small" color={colors.primaryTeal} style={{ marginRight: 8 }} />
+            <Text style={styles.successLoadingText}>Opening schedule workspace...</Text>
+          </View>
         </View>
-      )}
+      ) : (
+        <>
 
       {/* Error Banner */}
       {errorMessage && (
@@ -293,6 +325,54 @@ export function AcceptInvitationScreen({ navigation, route }: Props) {
             </TouchableOpacity>
           )}
 
+          {errorCode === 'INVITATION_ALREADY_USED' && (
+            <TouchableOpacity
+              style={styles.errorActionButton}
+              onPress={() => navigation.replace('BusinessSelect')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.errorActionButtonText}>Go to Your Workspaces →</Text>
+            </TouchableOpacity>
+          )}
+
+          {errorCode === 'INVITATION_EXPIRED' && (
+            <View style={{ width: '100%', gap: 8, marginTop: 12 }}>
+              <TouchableOpacity
+                style={styles.errorActionButton}
+                onPress={() => {
+                  setInvitation(null);
+                  setToken('');
+                  setErrorMessage(null);
+                  setErrorCode(null);
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.errorActionButtonText}>Try another link or token</Text>
+              </TouchableOpacity>
+              {isAuthenticated && (
+                <TouchableOpacity
+                  style={[styles.errorActionButton, { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border }]}
+                  onPress={() => navigation.replace('BusinessSelect')}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.errorActionButtonText, { color: colors.textPrimary }]}>
+                    Go to Your Workspaces →
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {errorCode === 'SEAT_LIMIT_REACHED' && (
+            <TouchableOpacity
+              style={styles.errorActionButton}
+              onPress={() => navigation.replace('BusinessSelect')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.errorActionButtonText}>Go to Your Workspaces →</Text>
+            </TouchableOpacity>
+          )}
+
           {errorCode === 'NOT_FOUND' && (
             <TouchableOpacity
               style={styles.errorActionButton}
@@ -300,6 +380,7 @@ export function AcceptInvitationScreen({ navigation, route }: Props) {
                 setInvitation(null);
                 setToken('');
                 setErrorMessage(null);
+                setErrorCode(null);
               }}
               activeOpacity={0.8}
             >
@@ -393,7 +474,7 @@ export function AcceptInvitationScreen({ navigation, route }: Props) {
             <View style={styles.authSection}>
               <Text style={styles.authPromptText}>
                 To accept this invitation and access your shifts, please sign in or register with{' '}
-                <Text style={styles.boldText}>{invitation.email}</Text>.
+                <Text style={styles.boldText}>{invitation.email}</Text>. If this email is registered with Google, tap "Sign In to Accept" and choose "Continue with Google".
               </Text>
 
               <TouchableOpacity
@@ -491,6 +572,8 @@ export function AcceptInvitationScreen({ navigation, route }: Props) {
             </View>
           )}
         </View>
+      )}
+        </>
       )}
 
       {/* Return Navigation */}
@@ -730,6 +813,65 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
       padding: spacing.xl,
       alignItems: 'center',
       marginBottom: spacing.lg,
+    },
+    successGlowRing: {
+      width: 68,
+      height: 68,
+      borderRadius: radii.full,
+      backgroundColor: isDark ? '#064E3B' : '#DCFCE7',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.sm,
+      alignSelf: 'center',
+    },
+    successHeading: {
+      fontSize: typography.sizes.xl,
+      fontWeight: typography.weights.bold,
+      color: colors.textPrimary,
+      textAlign: 'center',
+      marginTop: spacing.xs,
+    },
+    successSubheading: {
+      fontSize: typography.sizes.sm,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      marginTop: spacing.xs,
+      lineHeight: 18,
+    },
+    successDetailsBox: {
+      width: '100%',
+      backgroundColor: colors.surface,
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: spacing.md,
+      marginTop: spacing.md,
+      marginBottom: spacing.md,
+      gap: spacing.sm,
+    },
+    activeMembershipBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.success,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 3,
+      borderRadius: radii.full,
+    },
+    activeMembershipText: {
+      color: '#FFFFFF',
+      fontSize: typography.sizes.xs,
+      fontWeight: typography.weights.bold,
+    },
+    successLoadingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: spacing.xs,
+    },
+    successLoadingText: {
+      fontSize: typography.sizes.xs + 1,
+      color: colors.textSecondary,
+      fontWeight: typography.weights.medium,
     },
     successTitle: {
       fontSize: typography.sizes.lg,

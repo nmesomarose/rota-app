@@ -169,7 +169,7 @@ export async function login(
   const userRes = await controlPool.query<{
     id: string;
     email: string;
-    password_hash: string;
+    password_hash: string | null;
     name: string | null;
     status: string;
   }>(
