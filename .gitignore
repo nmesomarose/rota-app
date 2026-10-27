@@ -2,7 +2,12 @@
 .env
 .env.local
 .env.*.local
+.env.neon
+.env.render
+.env.*
 *.env
+*.env.txt
+src/env.txt
 !.env.example
 *.pem
 *.key
