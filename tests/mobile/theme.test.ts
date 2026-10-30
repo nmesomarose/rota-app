@@ -5,7 +5,9 @@ import path from 'node:path';
 
 describe('Automatic System-Controlled Light/Dark Mode Regression Suite', () => {
   const rootDir = process.cwd();
-  const mobileDir = path.resolve(rootDir, 'mobile');
+  const mobileDir = fs.existsSync(path.resolve(rootDir, 'mobile'))
+    ? path.resolve(rootDir, 'mobile')
+    : path.resolve(rootDir, '..', 'mobile');
 
   it('1. Expo configuration (app.json) specifies userInterfaceStyle: automatic for iOS and Android', () => {
     const appJsonPath = path.resolve(mobileDir, 'app.json');

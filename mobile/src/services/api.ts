@@ -98,18 +98,19 @@ export class ApiError extends Error {
 }
 
 let isRefreshing = false;
-let refreshSubscribers: ((token: string | null) => void)[] = [];
+let refreshSubscribers: ((token: string | null, error?: ApiError | null) => void)[] = [];
 
-function onRefreshed(token: string | null) {
-  refreshSubscribers.forEach((cb) => cb(token));
+function onRefreshed(token: string | null, error?: ApiError | null) {
+  refreshSubscribers.forEach((cb) => cb(token, error));
   refreshSubscribers = [];
 }
 
-function addRefreshSubscriber(cb: (token: string | null) => void) {
+function addRefreshSubscriber(cb: (token: string | null, error?: ApiError | null) => void) {
   refreshSubscribers.push(cb);
 }
 
-export const DEFAULT_REQUEST_TIMEOUT_MS = 12000; // 12-second bounded request timeout
+export const DEFAULT_REQUEST_TIMEOUT_MS = 25000; // 25-second bounded request timeout
+export const AUTH_REQUEST_TIMEOUT_MS = 45000; // 45-second timeout for cold-start resilience during authentication
 
 export interface RequestOptionsWithTimeout extends RequestInit {
   timeoutMs?: number;
@@ -229,7 +230,7 @@ export async function apiRequest<T>(
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ refreshToken }),
-            timeoutMs: 8000,
+            timeoutMs: 15000,
           });
 
           if (refreshRes.ok) {
@@ -256,13 +257,14 @@ export async function apiRequest<T>(
             }
             return (await retryRes.json()) as T;
           } else if (refreshRes.status >= 500) {
-            isRefreshing = false;
-            onRefreshed(null);
-            throw new ApiError(
+            const serverError = new ApiError(
               refreshRes.status,
               'SERVER_ERROR',
               'Rota backend error during session refresh. Please try again later.'
             );
+            isRefreshing = false;
+            onRefreshed(null, serverError);
+            throw serverError;
           }
         } catch (refreshErr) {
           if (
@@ -273,24 +275,25 @@ export async function apiRequest<T>(
               refreshErr.code === 'SERVER_ERROR')
           ) {
             isRefreshing = false;
-            onRefreshed(null);
+            onRefreshed(null, refreshErr);
             throw refreshErr;
           }
         }
       }
 
       // If refresh failed or was revoked: clean up session and cache (AC-AUTH-02, AC-OFF-01)
+      const expiryError = new ApiError(401, 'SESSION_EXPIRED', 'Your session has expired. Please log in again.');
       isRefreshing = false;
-      onRefreshed(null);
+      onRefreshed(null, expiryError);
       await clearSession({ isExpired: true });
       await clearAllOfflineCache();
-      throw new ApiError(401, 'SESSION_EXPIRED', 'Your session has expired. Please log in again.');
+      throw expiryError;
     } else {
       // Wait for existing refresh to resolve
       return new Promise<T>((resolve, reject) => {
-        addRefreshSubscriber(async (newToken) => {
+        addRefreshSubscriber(async (newToken, error) => {
           if (!newToken) {
-            return reject(new ApiError(401, 'SESSION_EXPIRED', 'Session expired. Please log in again.'));
+            return reject(error || new ApiError(401, 'SESSION_EXPIRED', 'Session expired. Please log in again.'));
           }
           headers.set('Authorization', `Bearer ${newToken}`);
           try {
@@ -353,6 +356,7 @@ export const api = {
       }>('/v1/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
+        timeoutMs: AUTH_REQUEST_TIMEOUT_MS,
       }),
 
     register: async (email: string, password: string, name?: string) =>
@@ -366,6 +370,7 @@ export const api = {
       }>('/v1/auth/register', {
         method: 'POST',
         body: JSON.stringify({ email, password, name }),
+        timeoutMs: AUTH_REQUEST_TIMEOUT_MS,
       }),
 
     logout: async () => {
@@ -433,6 +438,7 @@ export const api = {
       }>('/v1/auth/google', {
         method: 'POST',
         body: JSON.stringify({ idToken, deviceId }),
+        timeoutMs: AUTH_REQUEST_TIMEOUT_MS,
       }),
 
     linkGoogleAccount: async (email: string, currentPassword: string, idToken: string) =>
@@ -446,6 +452,7 @@ export const api = {
           currentPassword,
           idToken,
         }),
+        timeoutMs: AUTH_REQUEST_TIMEOUT_MS,
       }),
   },
 
@@ -556,6 +563,7 @@ export const api = {
           expiresAt: string;
           createdAt: string;
           token?: string;
+          deliveryStatus?: 'queued' | 'unconfigured';
         };
         member?: unknown;
       }>(`/v1/organizations/${businessId}/members/invite`, {

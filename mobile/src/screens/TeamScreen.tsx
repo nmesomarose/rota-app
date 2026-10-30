@@ -85,6 +85,7 @@ export function TeamScreen() {
     status: string;
     token?: string;
     expiresAt?: string;
+    deliveryStatus?: 'queued' | 'unconfigured';
   } | null>(null);
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
 
@@ -174,6 +175,7 @@ export function TeamScreen() {
         status: res.invitation?.status || 'pending',
         token: res.invitation?.token,
         expiresAt: res.invitation?.expiresAt,
+        deliveryStatus: res.invitation?.deliveryStatus,
       });
       setShowConfirmationModal(true);
       loadMembers(currentBusiness.id);
@@ -753,6 +755,7 @@ export function TeamScreen() {
           businessName={currentBusiness?.name}
           token={confirmedInvite.token}
           expiresAt={confirmedInvite.expiresAt}
+          deliveryStatus={confirmedInvite.deliveryStatus}
           onBackToTeam={handleBackToTeamFromConfirmation}
           onInviteAnother={handleInviteAnotherFromConfirmation}
         />

@@ -93,6 +93,9 @@ export function MainTabs({ navigation }: { navigation: any }) {
         isChecking={connectivity.isChecking}
         onRetry={() => connectivityManager.retry()}
         message="Working offline. Shift schedule and activity feed remain cached."
+        style={{
+          paddingTop: Math.max(insets.top, Platform.OS === 'android' ? 24 : 0) + 6,
+        }}
       />
 
       <Tab.Navigator

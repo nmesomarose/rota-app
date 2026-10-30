@@ -188,9 +188,14 @@ describe('Mobile Expired Session Navigation & Security Clearance (Regression Sui
         content.includes('await clearAllOfflineCache();'),
         'api.ts must clear offline cache to prevent data exposure on confirmed expiry'
       );
+      // The error is constructed as a variable first so it can be propagated to queued refresh subscribers
       assert.ok(
-        content.includes("throw new ApiError(401, 'SESSION_EXPIRED', 'Your session has expired. Please log in again.');"),
-        'api.ts must throw SESSION_EXPIRED ApiError'
+        content.includes("new ApiError(401, 'SESSION_EXPIRED', 'Your session has expired. Please log in again.')"),
+        'api.ts must construct SESSION_EXPIRED ApiError'
+      );
+      assert.ok(
+        content.includes('throw expiryError;') || content.includes("throw new ApiError(401, 'SESSION_EXPIRED'"),
+        'api.ts must throw the SESSION_EXPIRED error'
       );
     });
 

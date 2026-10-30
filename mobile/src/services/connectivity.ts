@@ -152,7 +152,7 @@ class ConnectivityManager {
 
     this.inFlightProbe = (async (): Promise<boolean> => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
 
       try {
         const res = await fetch(`${this.apiBaseUrl}/health`, {
@@ -193,7 +193,7 @@ class ConnectivityManager {
         clearTimeout(timeoutId);
         const isAbort = (err as any)?.name === 'AbortError';
         const msg = isAbort
-          ? 'Backend health check timed out (3.5s)'
+          ? 'Backend health check timed out (8.0s)'
           : 'Unable to reach backend server';
 
         this.state = {

@@ -6,7 +6,7 @@ import { verifyPassword } from '../../src/services/password-service.ts';
 
 describe('Existing User Invitation Acceptance, Google Auth & Tenant Isolation (Unit Regression Suite)', () => {
   const readSource = (relPath: string) =>
-    fs.readFileSync(path.resolve(process.cwd(), relPath), 'utf8');
+    fs.readFileSync(path.resolve(process.cwd(), relPath), 'utf8').replace(/\r\n/g, '\n');
 
   describe('1. Anti-Enumeration & Google-Only User Password Protection (SEC-004, FR-AUTH-002)', () => {
     it('verifyPassword safely returns false when password_hash is null (Google-only account)', async () => {

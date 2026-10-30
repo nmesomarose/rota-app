@@ -281,7 +281,7 @@ export function LoginScreen({ navigation, route }: Props) {
         await setUserProfile(data.user);
 
         // Proactively register push token upon authenticated session creation
-        registerForPushNotificationsAsync().catch(() => {});
+        registerForPushNotificationsAsync().catch(() => { });
 
         // Show tasteful success Lottie celebration upon confirmed backend registration
         setRegistrationSuccess(true);
@@ -300,7 +300,7 @@ export function LoginScreen({ navigation, route }: Props) {
         await setUserProfile(data.user);
 
         // Proactively register push token upon login
-        registerForPushNotificationsAsync().catch(() => {});
+        registerForPushNotificationsAsync().catch(() => { });
 
         if (pendingInviteToken) {
           navigation.replace('AcceptInvitation', { token: pendingInviteToken });
@@ -430,7 +430,7 @@ export function LoginScreen({ navigation, route }: Props) {
       await setAccessToken(authData.tokens.accessToken);
       await setRefreshToken(authData.tokens.refreshToken);
       await setUserProfile(authData.user);
-      registerForPushNotificationsAsync().catch(() => {});
+      registerForPushNotificationsAsync().catch(() => { });
 
       if (pendingInviteToken) {
         navigation.replace('AcceptInvitation', { token: pendingInviteToken });
@@ -500,8 +500,8 @@ export function LoginScreen({ navigation, route }: Props) {
         contentContainerStyle={[
           styles.scrollContainer,
           {
-            paddingTop: Math.max(insets.top, 24) + 12,
-            paddingBottom: Math.max(insets.bottom, 24) + 12,
+            paddingTop: Math.max(insets.top, 16) + 4,
+            paddingBottom: Math.max(insets.bottom, 16) + 4,
           },
         ]}
         keyboardShouldPersistTaps="handled"
@@ -539,7 +539,7 @@ export function LoginScreen({ navigation, route }: Props) {
           <Text style={styles.appTitle}>{isSignUp ? 'Create Account' : 'Sign In to Rota'}</Text>
           <Text style={styles.appSubtitle}>
             {isSignUp
-              ? 'Set up your profile to start scheduling and managing staff'
+              ? 'Set up your profile to manage shifts'
               : 'Workforce Scheduling Platform'}
           </Text>
         </View>
@@ -1035,77 +1035,77 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
     scrollContainer: {
       flexGrow: 1,
       justifyContent: 'center',
-      paddingHorizontal: 24,
-      paddingVertical: 36,
+      paddingHorizontal: 20,
+      paddingVertical: 16,
     },
     header: {
       alignItems: 'center',
-      marginBottom: 28,
+      marginBottom: 14,
     },
     backToSignInButton: {
       alignSelf: 'flex-start',
-      marginBottom: 16,
-      paddingVertical: 8,
-      paddingHorizontal: 12,
+      marginBottom: 12,
+      paddingVertical: 6,
+      paddingHorizontal: 10,
       backgroundColor: colors.surfaceSubtle,
-      borderRadius: 8,
+      borderRadius: 6,
     },
     backToSignInText: {
       color: colors.primaryTeal,
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '600',
     },
     logoPressable: {
-      marginBottom: 14,
+      marginBottom: 8,
     },
     logoBadgeContainer: {
-      width: 76,
-      height: 76,
-      borderRadius: 20,
+      width: 52,
+      height: 52,
+      borderRadius: 14,
       backgroundColor: '#FFFFFF',
-      borderWidth: isDark ? 2 : 1,
+      borderWidth: isDark ? 1.5 : 1,
       borderColor: isDark ? colors.primaryTeal : colors.border,
       alignItems: 'center',
       justifyContent: 'center',
       shadowColor: isDark ? colors.primaryTeal : colors.primaryNavy,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: isDark ? 0.35 : 0.1,
-      shadowRadius: 10,
-      elevation: 4,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDark ? 0.3 : 0.08,
+      shadowRadius: 6,
+      elevation: 3,
     },
     logoImage: {
-      width: 64,
-      height: 64,
-      borderRadius: 14,
+      width: 42,
+      height: 42,
+      borderRadius: 10,
     },
     logoBadgeText: {
       color: colors.lightTeal,
-      fontSize: 28,
+      fontSize: 22,
       fontWeight: '800',
       letterSpacing: -0.5,
     },
     appTitle: {
-      fontSize: 30,
+      fontSize: 22,
       fontWeight: '800',
       color: colors.textPrimary,
-      letterSpacing: -0.5,
+      letterSpacing: -0.3,
     },
     appSubtitle: {
-      fontSize: 14,
+      fontSize: 12.5,
       color: colors.textSecondary,
-      marginTop: 4,
+      marginTop: 2,
       fontWeight: '500',
     },
     card: {
       backgroundColor: colors.surface,
-      borderRadius: 20,
-      padding: 24,
+      borderRadius: 16,
+      padding: 16,
       borderWidth: 1,
       borderColor: colors.border,
       shadowColor: colors.primaryNavy,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.06,
-      shadowRadius: 16,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 10,
       elevation: 2,
     },
     tabContainer: {
@@ -1180,13 +1180,13 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
       fontWeight: '600',
     },
     inputGroup: {
-      marginBottom: 16,
+      marginBottom: 10,
     },
     passwordHeaderRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 6,
+      marginBottom: 4,
     },
     forgotPasswordText: {
       fontSize: 12,
@@ -1194,20 +1194,21 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
       fontWeight: '600',
     },
     label: {
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: '600',
       color: colors.textPrimary,
-      marginBottom: 6,
+      marginBottom: 4,
     },
     input: {
       backgroundColor: colors.surfaceSubtle,
       borderColor: colors.border,
       borderWidth: 1.5,
-      borderRadius: 10,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
       color: colors.textPrimary,
-      fontSize: 15,
+      fontSize: 14,
+      height: 42,
     },
     passwordContainer: {
       flexDirection: 'row',
@@ -1215,7 +1216,8 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
       backgroundColor: colors.surfaceSubtle,
       borderColor: colors.border,
       borderWidth: 1.5,
-      borderRadius: 10,
+      borderRadius: 8,
+      height: 42,
     },
     passwordContainerValid: {
       borderColor: colors.successBorder,
@@ -1223,10 +1225,10 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
     },
     passwordInput: {
       flex: 1,
-      paddingHorizontal: 14,
-      paddingVertical: 12,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
       color: colors.textPrimary,
-      fontSize: 15,
+      fontSize: 14,
     },
     checklistContainer: {
       marginTop: 10,
@@ -1306,31 +1308,33 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
     },
     button: {
       backgroundColor: colors.primaryTeal,
-      paddingVertical: 14,
-      borderRadius: 10,
+      paddingVertical: 11,
+      borderRadius: 8,
       alignItems: 'center',
-      marginTop: 8,
+      justifyContent: 'center',
+      marginTop: 6,
+      height: 44,
       shadowColor: colors.primaryTeal,
-      shadowOffset: { width: 0, height: 3 },
+      shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.2,
-      shadowRadius: 8,
-      elevation: 3,
+      shadowRadius: 6,
+      elevation: 2,
     },
     buttonDisabled: {
       opacity: 0.65,
     },
     buttonText: {
       color: '#FFFFFF',
-      fontWeight: '600',
-      fontSize: 16,
+      fontWeight: '700',
+      fontSize: 15,
     },
     toggleFooter: {
-      marginTop: 18,
+      marginTop: 10,
       alignItems: 'center',
-      paddingVertical: 6,
+      paddingVertical: 4,
     },
     toggleFooterText: {
-      fontSize: 13,
+      fontSize: 12.5,
       color: colors.textSecondary,
     },
     toggleFooterHighlight: {
@@ -1338,7 +1342,7 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
       fontWeight: '600',
     },
     discreetFooter: {
-      marginTop: 24,
+      marginTop: 8,
       alignItems: 'center',
     },
     discreetFooterText: {
@@ -1571,15 +1575,15 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
       backgroundColor: colors.surfaceSubtle,
       borderColor: colors.border,
       borderWidth: 1.5,
-      paddingVertical: 12,
-      borderRadius: 10,
+      paddingVertical: 10,
+      borderRadius: 8,
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: 16,
+      marginBottom: 10,
       shadowColor: '#000',
       shadowOffset: { width: 0, height: 1 },
       shadowOpacity: 0.04,
-      shadowRadius: 3,
+      shadowRadius: 2,
       elevation: 1,
     },
     googleButtonContent: {
@@ -1589,13 +1593,13 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
     },
     googleButtonText: {
       color: colors.textPrimary,
-      fontSize: 15,
+      fontSize: 14,
       fontWeight: '600',
     },
     orDividerContainer: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 18,
+      marginBottom: 10,
     },
     orDividerLine: {
       flex: 1,
@@ -1603,18 +1607,18 @@ const createStyles = (colors: ColorTokens, isDark: boolean) =>
       backgroundColor: colors.border,
     },
     orDividerText: {
-      paddingHorizontal: 12,
-      fontSize: 12,
+      paddingHorizontal: 10,
+      fontSize: 11,
       fontWeight: '500',
       color: colors.textSecondary,
     },
     authGuidanceHint: {
-      fontSize: 12,
+      fontSize: 11,
       color: colors.textSecondary,
       textAlign: 'center',
-      marginBottom: 16,
-      lineHeight: 17,
-      paddingHorizontal: 8,
+      marginBottom: 10,
+      lineHeight: 15,
+      paddingHorizontal: 4,
     },
     modalErrorBanner: {
       backgroundColor: colors.errorLight,

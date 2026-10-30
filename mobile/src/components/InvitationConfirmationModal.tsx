@@ -22,6 +22,7 @@ export interface InvitationConfirmationModalProps {
   businessName?: string;
   token?: string;
   expiresAt?: string;
+  deliveryStatus?: 'queued' | 'unconfigured';
   onBackToTeam: () => void;
   onInviteAnother: () => void;
 }
@@ -34,6 +35,7 @@ export function InvitationConfirmationModal({
   businessName,
   token,
   expiresAt,
+  deliveryStatus,
   onBackToTeam,
   onInviteAnother,
 }: InvitationConfirmationModalProps) {
@@ -109,42 +111,42 @@ export function InvitationConfirmationModal({
             showsVerticalScrollIndicator={false}
             bounces={false}
           >
-            {/* Success Illustration & Icon Header */}
+            {/* Compact Success Icon & Header */}
             <View style={styles.illustrationWrapper}>
               <View style={styles.outerGlowRing}>
                 <View style={styles.middleRing}>
                   <View style={styles.iconCircle}>
                     <Ionicons
                       name="mail-open"
-                      size={34}
+                      size={20}
                       color={colors.primaryTeal}
                     />
                   </View>
                 </View>
               </View>
               <View style={styles.miniCheckBadge}>
-                <Ionicons name="checkmark" size={12} color="#FFFFFF" />
+                <Ionicons name="checkmark" size={10} color="#FFFFFF" />
               </View>
             </View>
 
             {/* Clear Confirmation Heading */}
             <Text style={styles.heading}>Invitation Created</Text>
             <Text style={styles.subheading}>
-              An invitation has been generated and queued for delivery.
+              Staff invitation is registered and ready.
             </Text>
 
-            {/* Invited Member Details Card */}
+            {/* Compact Invited Member Details Card */}
             <View style={styles.detailsCard}>
               {/* Recipient Email Row */}
               <View style={styles.detailItem}>
                 <View style={styles.detailIconBox}>
-                  <Ionicons name="person-outline" size={16} color={colors.primaryTeal} />
+                  <Ionicons name="person-outline" size={14} color={colors.primaryTeal} />
                 </View>
                 <View style={styles.detailContent}>
                   <Text style={styles.detailLabel}>Invited Member</Text>
                   <Text
                     style={styles.detailValue}
-                    numberOfLines={2}
+                    numberOfLines={1}
                     ellipsizeMode="middle"
                     selectable
                   >
@@ -158,7 +160,7 @@ export function InvitationConfirmationModal({
               {/* Assigned Role Row */}
               <View style={styles.detailItem}>
                 <View style={styles.detailIconBox}>
-                  <Ionicons name="shield-outline" size={16} color={colors.primaryTeal} />
+                  <Ionicons name="shield-outline" size={14} color={colors.primaryTeal} />
                 </View>
                 <View style={styles.detailContent}>
                   <Text style={styles.detailLabel}>Assigned Role</Text>
@@ -178,7 +180,7 @@ export function InvitationConfirmationModal({
               {/* Status Row: Explicitly Pending Acceptance */}
               <View style={styles.detailItem}>
                 <View style={styles.detailIconBox}>
-                  <Ionicons name="time-outline" size={16} color={colors.warning} />
+                  <Ionicons name="time-outline" size={14} color={colors.warning} />
                 </View>
                 <View style={styles.detailContent}>
                   <Text style={styles.detailLabel}>Invitation Status</Text>
@@ -187,38 +189,67 @@ export function InvitationConfirmationModal({
                       <View style={styles.pendingDot} />
                       <Text style={styles.pendingBadgeText}>Pending Acceptance</Text>
                     </View>
+                    <Text style={styles.expiryNote}>• Valid for {formattedExpiry}</Text>
                   </View>
-                  <Text style={styles.statusDescription}>
-                    Valid for {formattedExpiry}. The invitee must accept before appearing on active shift rosters.
-                  </Text>
                 </View>
               </View>
             </View>
 
-            {/* Task 7: Distinguish invitation creation from actual email delivery and acceptance */}
+            {/* Next Steps: Short, accurate instruction */}
             <View style={styles.noticeCard}>
               <View style={styles.noticeHeaderRow}>
                 <Ionicons
                   name="information-circle-outline"
-                  size={18}
+                  size={15}
                   color={colors.primaryTeal}
                   style={{ marginRight: 6 }}
                 />
                 <Text style={styles.noticeTitle}>Next Steps for Invitee</Text>
               </View>
               <Text style={styles.noticeBody}>
-                {businessName ? `${businessName} sent an invitation link.` : 'An invitation link was sent.'} The recipient must open the link and sign in using Google or their Rota password to join this workspace.
+                The recipient must open the link and sign in using Google or their Rota password to join this workspace.
               </Text>
             </View>
 
             {/* Protected Invitation Delivery Notice (Tokens are cryptographically hashed and never exposed) */}
-            <View style={styles.deliveryBadgeCard}>
+            <View
+              style={[
+                styles.deliveryBadgeCard,
+                deliveryStatus === 'unconfigured' && styles.deliveryBadgeWarningCard,
+              ]}
+            >
               <View style={styles.deliveryBadgeHeader}>
-                <Ionicons name="shield-checkmark-outline" size={16} color={colors.primaryTeal} style={{ marginRight: 6 }} />
-                <Text style={styles.deliveryBadgeTitle}>Protected Invitation Delivery</Text>
+                <Ionicons
+                  name={
+                    deliveryStatus === 'unconfigured'
+                      ? 'alert-circle-outline'
+                      : deliveryStatus === 'queued'
+                      ? 'mail-outline'
+                      : 'shield-checkmark-outline'
+                  }
+                  size={14}
+                  color={deliveryStatus === 'unconfigured' ? colors.warning : colors.primaryTeal}
+                  style={{ marginRight: 6 }}
+                />
+                <Text
+                  style={[
+                    styles.deliveryBadgeTitle,
+                    deliveryStatus === 'unconfigured' && { color: colors.warningText },
+                  ]}
+                >
+                  {deliveryStatus === 'queued'
+                    ? 'Email Delivery Queued'
+                    : deliveryStatus === 'unconfigured'
+                    ? 'Email Delivery Unconfigured'
+                    : 'Protected Invitation Delivery'}
+                </Text>
               </View>
               <Text style={styles.deliveryBadgeSubtitle}>
-                Invitation dispatched securely to {email}. Tokens are single-use, cryptographically hashed, and never exposed in the UI.
+                {deliveryStatus === 'queued'
+                  ? 'Automated invitation email is queued for delivery. Tokens are single-use and cryptographically protected.'
+                  : deliveryStatus === 'unconfigured'
+                  ? 'Server email delivery is not configured on this environment. The invitation was created in the system, but no email was sent.'
+                  : 'Invitation token is cryptographically protected and never exposed in the UI.'}
               </Text>
             </View>
 
@@ -232,7 +263,7 @@ export function InvitationConfirmationModal({
                 accessibilityRole="button"
                 accessibilityLabel="Back to Team"
               >
-                <Ionicons name="people" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+                <Ionicons name="people" size={17} color="#FFFFFF" style={{ marginRight: 8 }} />
                 <Text style={styles.primaryButtonText}>Back to Team</Text>
               </TouchableOpacity>
 
@@ -246,7 +277,7 @@ export function InvitationConfirmationModal({
               >
                 <Ionicons
                   name="person-add-outline"
-                  size={18}
+                  size={17}
                   color={colors.primaryTeal}
                   style={{ marginRight: 8 }}
                 />
@@ -297,52 +328,52 @@ function createStyles(colors: ColorTokens, isDark: boolean, screenHeight: number
       backgroundColor: colors.backdrop,
       justifyContent: 'center',
       alignItems: 'center',
-      paddingHorizontal: spacing.lg,
-      paddingVertical: spacing.xl,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.lg,
     },
     modalContainer: {
       width: '100%',
-      maxWidth: 440,
-      maxHeight: Math.min(screenHeight * 0.88, 640),
+      maxWidth: 400,
+      maxHeight: Math.min(screenHeight * 0.85, 500),
       backgroundColor: colors.surface,
-      borderRadius: radii.xl,
+      borderRadius: radii.lg,
       borderWidth: 1,
       borderColor: colors.border,
       overflow: 'hidden',
       ...(isDark ? shadows.modal : shadows.elevated),
     },
     scrollContent: {
-      paddingHorizontal: spacing.xl,
-      paddingVertical: spacing.xl,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.lg,
       alignItems: 'center',
     },
     illustrationWrapper: {
       position: 'relative',
       alignItems: 'center',
       justifyContent: 'center',
-      marginBottom: spacing.md,
-      marginTop: spacing.xs,
+      marginBottom: spacing.xs,
+      marginTop: 0,
     },
     outerGlowRing: {
-      width: 86,
-      height: 86,
-      borderRadius: 43,
+      width: 50,
+      height: 50,
+      borderRadius: 25,
       backgroundColor: isDark ? 'rgba(20, 184, 166, 0.12)' : 'rgba(15, 118, 110, 0.08)',
       alignItems: 'center',
       justifyContent: 'center',
     },
     middleRing: {
-      width: 72,
-      height: 72,
-      borderRadius: 36,
+      width: 40,
+      height: 40,
+      borderRadius: 20,
       backgroundColor: isDark ? 'rgba(20, 184, 166, 0.22)' : 'rgba(15, 118, 110, 0.14)',
       alignItems: 'center',
       justifyContent: 'center',
     },
     iconCircle: {
-      width: 58,
-      height: 58,
-      borderRadius: 29,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
       backgroundColor: colors.lightTeal,
       borderWidth: 1.5,
       borderColor: colors.primaryTeal,
@@ -351,132 +382,130 @@ function createStyles(colors: ColorTokens, isDark: boolean, screenHeight: number
     },
     miniCheckBadge: {
       position: 'absolute',
-      bottom: 2,
-      right: 4,
-      width: 22,
-      height: 22,
-      borderRadius: 11,
+      bottom: -1,
+      right: -1,
+      width: 15,
+      height: 15,
+      borderRadius: 7.5,
       backgroundColor: colors.success,
-      borderWidth: 2,
+      borderWidth: 1.5,
       borderColor: colors.surface,
       alignItems: 'center',
       justifyContent: 'center',
     },
     heading: {
-      fontSize: typography.sizes.xl,
+      fontSize: typography.sizes.lg,
       fontWeight: typography.weights.bold,
       color: colors.primaryNavy,
       textAlign: 'center',
-      marginBottom: spacing.xs,
+      marginBottom: 2,
       letterSpacing: -0.3,
     },
     subheading: {
-      fontSize: typography.sizes.sm,
+      fontSize: typography.sizes.xs,
       color: colors.textSecondary,
       textAlign: 'center',
-      marginBottom: spacing.lg,
-      paddingHorizontal: spacing.sm,
-      lineHeight: 18,
+      marginBottom: spacing.sm + 2,
+      paddingHorizontal: spacing.xs,
+      lineHeight: 16,
     },
     detailsCard: {
       width: '100%',
       backgroundColor: colors.surfaceSubtle,
-      borderRadius: radii.lg,
+      borderRadius: radii.md,
       borderWidth: 1,
       borderColor: colors.borderSubtle,
-      padding: spacing.md,
-      marginBottom: spacing.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
+      marginBottom: spacing.sm,
     },
     detailItem: {
       flexDirection: 'row',
-      alignItems: 'flex-start',
-      paddingVertical: spacing.xs,
+      alignItems: 'center',
+      paddingVertical: 3,
     },
     detailIconBox: {
-      width: 28,
-      height: 28,
-      borderRadius: 14,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
       backgroundColor: isDark ? 'rgba(20, 184, 166, 0.15)' : 'rgba(15, 118, 110, 0.08)',
       alignItems: 'center',
       justifyContent: 'center',
       marginRight: spacing.sm,
-      marginTop: 2,
     },
     detailContent: {
       flex: 1,
     },
     detailLabel: {
-      fontSize: typography.sizes.xs,
+      fontSize: 10,
       color: colors.textSecondary,
       fontWeight: typography.weights.medium,
-      marginBottom: 2,
+      marginBottom: 1,
       textTransform: 'uppercase',
       letterSpacing: 0.5,
     },
     detailValue: {
-      fontSize: typography.sizes.sm,
+      fontSize: 13,
       fontWeight: typography.weights.semiBold,
       color: colors.textPrimary,
-      lineHeight: 20,
+      lineHeight: 18,
     },
     roleRow: {
       flexDirection: 'row',
       alignItems: 'center',
       flexWrap: 'wrap',
-      marginTop: 2,
     },
     roleBadge: {
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 2,
+      paddingHorizontal: 6,
+      paddingVertical: 1.5,
       borderRadius: radii.sm,
       marginRight: spacing.xs,
     },
     roleBadgeText: {
-      fontSize: typography.sizes.xs,
+      fontSize: 10,
       fontWeight: typography.weights.bold,
       letterSpacing: 0.5,
     },
     roleFriendlyText: {
-      fontSize: typography.sizes.xs,
+      fontSize: 11,
       color: colors.textSecondary,
     },
     statusRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginTop: 2,
+      flexWrap: 'wrap',
     },
     pendingBadge: {
       flexDirection: 'row',
       alignItems: 'center',
       backgroundColor: colors.warningLight,
-      paddingHorizontal: spacing.sm,
-      paddingVertical: 2,
+      paddingHorizontal: 6,
+      paddingVertical: 1.5,
       borderRadius: radii.sm,
       borderWidth: 1,
       borderColor: colors.warningBorder,
     },
     pendingDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
+      width: 5,
+      height: 5,
+      borderRadius: 2.5,
       backgroundColor: colors.warning,
-      marginRight: 6,
+      marginRight: 5,
     },
     pendingBadgeText: {
-      fontSize: typography.sizes.xs,
+      fontSize: 10,
       fontWeight: typography.weights.bold,
       color: colors.warningText,
     },
-    statusDescription: {
-      fontSize: typography.sizes.xs,
+    expiryNote: {
+      fontSize: 11,
       color: colors.textMuted,
-      marginTop: 4,
-      lineHeight: 16,
+      marginLeft: 6,
     },
     divider: {
       height: 1,
       backgroundColor: colors.borderSubtle,
-      marginVertical: spacing.xs,
+      marginVertical: 3,
     },
     noticeCard: {
       width: '100%',
@@ -484,25 +513,26 @@ function createStyles(colors: ColorTokens, isDark: boolean, screenHeight: number
       borderRadius: radii.md,
       borderWidth: 1,
       borderColor: isDark ? 'rgba(20, 184, 166, 0.25)' : 'rgba(15, 118, 110, 0.2)',
-      padding: spacing.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm,
       marginBottom: spacing.md,
     },
     noticeHeaderRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 4,
+      marginBottom: 2,
     },
     noticeTitle: {
-      fontSize: typography.sizes.xs,
+      fontSize: 10,
       fontWeight: typography.weights.bold,
       color: colors.primaryTeal,
       textTransform: 'uppercase',
       letterSpacing: 0.4,
     },
     noticeBody: {
-      fontSize: typography.sizes.xs,
+      fontSize: 11,
       color: colors.textSecondary,
-      lineHeight: 17,
+      lineHeight: 16,
     },
     deliveryBadgeCard: {
       width: '100%',
@@ -510,30 +540,35 @@ function createStyles(colors: ColorTokens, isDark: boolean, screenHeight: number
       borderRadius: radii.md,
       borderWidth: 1,
       borderColor: colors.border,
-      padding: spacing.sm + 2,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.xs + 2,
       marginBottom: spacing.md,
+    },
+    deliveryBadgeWarningCard: {
+      borderColor: colors.warningBorder,
+      backgroundColor: colors.warningLight,
     },
     deliveryBadgeHeader: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 4,
+      marginBottom: 2,
     },
     deliveryBadgeTitle: {
-      fontSize: typography.sizes.xs,
+      fontSize: 10,
       fontWeight: typography.weights.bold,
       color: colors.primaryTeal,
       textTransform: 'uppercase',
       letterSpacing: 0.4,
     },
     deliveryBadgeSubtitle: {
-      fontSize: typography.sizes.xs,
+      fontSize: 11,
       color: colors.textSecondary,
-      lineHeight: 16,
+      lineHeight: 15,
     },
     actionsContainer: {
       width: '100%',
-      gap: spacing.sm,
-      marginTop: spacing.xs,
+      gap: spacing.xs + 2,
+      marginTop: 0,
     },
     primaryButton: {
       flexDirection: 'row',
@@ -542,12 +577,12 @@ function createStyles(colors: ColorTokens, isDark: boolean, screenHeight: number
       backgroundColor: colors.primaryTeal,
       borderRadius: radii.md,
       minHeight: 48,
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: spacing.md,
       ...(isDark ? shadows.subtle : shadows.card),
     },
     primaryButtonText: {
       color: '#FFFFFF',
-      fontSize: typography.sizes.md,
+      fontSize: 14,
       fontWeight: typography.weights.bold,
     },
     secondaryButton: {
@@ -559,11 +594,11 @@ function createStyles(colors: ColorTokens, isDark: boolean, screenHeight: number
       borderWidth: 1.5,
       borderColor: colors.primaryTeal,
       minHeight: 48,
-      paddingHorizontal: spacing.lg,
+      paddingHorizontal: spacing.md,
     },
     secondaryButtonText: {
       color: colors.primaryTeal,
-      fontSize: typography.sizes.md,
+      fontSize: 14,
       fontWeight: typography.weights.bold,
     },
   });

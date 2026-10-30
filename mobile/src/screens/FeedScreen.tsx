@@ -692,13 +692,15 @@ export function FeedScreen() {
                   ? 'Could not reach Rota backend. Pull down or tap below to retry.'
                   : 'Shift changes, attendance, and swaps will appear here.'}
               </Text>
-              <TouchableOpacity
-                style={styles.retryButton}
-                onPress={() => loadFeed(true)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.retryButtonText}>Retry Connection</Text>
-              </TouchableOpacity>
+              {feedError ? (
+                <TouchableOpacity
+                  style={styles.retryButton}
+                  onPress={() => loadFeed(true)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.retryButtonText}>Retry Connection</Text>
+                </TouchableOpacity>
+              ) : null}
             </ScrollView>
           ) : (
             <FlatList
@@ -777,13 +779,15 @@ export function FeedScreen() {
                   ? 'Could not reach Rota backend. Pull down or tap below to retry.'
                   : 'All caught up. Important schedule announcements and alerts appear here.'}
               </Text>
-              <TouchableOpacity
-                style={styles.retryButton}
-                onPress={() => loadInbox(true)}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.retryButtonText}>Retry Connection</Text>
-              </TouchableOpacity>
+              {inboxError ? (
+                <TouchableOpacity
+                  style={styles.retryButton}
+                  onPress={() => loadInbox(true)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.retryButtonText}>Retry Connection</Text>
+                </TouchableOpacity>
+              ) : null}
             </ScrollView>
           ) : (
             <FlatList
@@ -809,347 +813,347 @@ export function FeedScreen() {
 
 function createStyles(colors: ColorTokens, isDark: boolean) {
   return StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: isDark ? colors.surfaceSubtle : '#E2E8F0',
-    borderRadius: 10,
-    padding: 3,
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  tabButton: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  activeTabButton: {
-    backgroundColor: colors.surface,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: isDark ? 0.3 : 0.08,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  tabButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  activeTabText: {
-    color: colors.textPrimary,
-    fontWeight: '700',
-  },
-  feedWrapper: {
-    flex: 1,
-  },
-  listContent: {
-    padding: 16,
-    paddingTop: 8,
-    gap: 12,
-  },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: isDark ? 0.3 : 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  unreadCard: {
-    borderLeftWidth: 4,
-    borderLeftColor: colors.primaryTeal,
-    backgroundColor: isDark ? '#0F766E15' : colors.surfaceSubtle,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  badgeGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexShrink: 1,
-    marginRight: 8,
-  },
-  visBadge: {
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-    borderRadius: 5,
-    alignSelf: 'flex-start',
-  },
-  visBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.4,
-  },
-  inlineStatusBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  inlineStatusText: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  timeText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: colors.textSecondary,
-    flexShrink: 0,
-  },
-  eventHeadline: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    lineHeight: 20,
-    marginBottom: 8,
-    flexShrink: 1,
-  },
-  cardBody: {
-    marginTop: 0,
-  },
-  eventBox: {
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: 8,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 4,
-  },
-  eventSubHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  eventSubTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    flexShrink: 1,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 2,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  metaText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  metaDivider: {
-    fontSize: 12,
-    color: colors.textMuted,
-    marginHorizontal: 1,
-  },
-  eventMembers: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.primaryTeal,
-    flexShrink: 1,
-  },
-  membersRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 3,
-  },
-  eventNotes: {
-    fontSize: 12,
-    color: colors.textMuted,
-    fontStyle: 'italic',
-    marginTop: 3,
-    lineHeight: 16,
-  },
-  eventSimpleSummary: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 18,
-    flexShrink: 1,
-  },
-  payloadSummary: {
-    fontSize: 12,
-    color: colors.textPrimary,
-    fontFamily: 'monospace',
-    backgroundColor: colors.surfaceSelected,
-    padding: 10,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  cardEmptyDesc: {
-    fontSize: 13,
-    color: colors.textSecondary,
-  },
-  itemTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 4,
-    lineHeight: 20,
-    flexShrink: 1,
-  },
-  itemBody: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    lineHeight: 18,
-    flexShrink: 1,
-  },
-  urgentBadge: {
-    backgroundColor: colors.error,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  urgentBadgeText: {
-    color: colors.white,
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  inboxCatBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-    backgroundColor: isDark ? '#0F766E25' : colors.lightTeal,
-  },
-  inboxCatText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: isDark ? '#2DD4BF' : colors.tealDark,
-    letterSpacing: 0.3,
-  },
-  unreadIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-    gap: 6,
-  },
-  unreadDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.primaryTeal,
-  },
-  unreadText: {
-    fontSize: 11,
-    color: colors.primaryTeal,
-    fontWeight: '600',
-  },
-  footerLoader: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 16,
-    gap: 8,
-  },
-  loadingMoreText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  endOfListContainer: {
-    alignItems: 'center',
-    paddingVertical: 16,
-  },
-  endOfListText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  centerBox: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyScrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  loadingText: {
-    color: colors.textSecondary,
-    marginTop: 12,
-    fontSize: 14,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 6,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    maxWidth: 280,
-  },
-  retryButton: {
-    marginTop: 16,
-    backgroundColor: colors.primaryTeal,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    shadowColor: colors.primaryTeal,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  errorBanner: {
-    backgroundColor: colors.errorLight,
-    borderColor: colors.errorBorder,
-    borderWidth: 1,
-    padding: 12,
-    margin: 16,
-    marginBottom: 0,
-    borderRadius: 8,
-  },
-  errorText: {
-    color: colors.errorText,
-    fontSize: 13,
-    textAlign: 'center',
-  },
-  noticeBanner: {
-    backgroundColor: isDark ? '#0F766E33' : colors.lightTeal,
-    borderColor: isDark ? '#0F766E' : '#99F6E4',
-    borderWidth: 1,
-    padding: 12,
-    marginHorizontal: 16,
-    marginTop: 8,
-    marginBottom: 0,
-    borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  noticeText: {
-    color: isDark ? '#2DD4BF' : colors.tealDark,
-    fontSize: 13,
-    fontWeight: '600',
-    flex: 1,
-  },
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    tabContainer: {
+      flexDirection: 'row',
+      backgroundColor: isDark ? colors.surfaceSubtle : '#E2E8F0',
+      borderRadius: 10,
+      padding: 3,
+      marginHorizontal: 16,
+      marginTop: 12,
+      marginBottom: 8,
+    },
+    tabButton: {
+      flex: 1,
+      paddingVertical: 8,
+      alignItems: 'center',
+      borderRadius: 8,
+    },
+    activeTabButton: {
+      backgroundColor: colors.surface,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: isDark ? 0.3 : 0.08,
+      shadowRadius: 2,
+      elevation: 2,
+    },
+    tabButtonText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textSecondary,
+    },
+    activeTabText: {
+      color: colors.textPrimary,
+      fontWeight: '700',
+    },
+    feedWrapper: {
+      flex: 1,
+    },
+    listContent: {
+      padding: 16,
+      paddingTop: 8,
+      gap: 12,
+    },
+    card: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: isDark ? 0.3 : 0.04,
+      shadowRadius: 3,
+      elevation: 1,
+    },
+    unreadCard: {
+      borderLeftWidth: 4,
+      borderLeftColor: colors.primaryTeal,
+      backgroundColor: isDark ? '#0F766E15' : colors.surfaceSubtle,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 6,
+    },
+    badgeGroup: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      flexShrink: 1,
+      marginRight: 8,
+    },
+    visBadge: {
+      paddingHorizontal: 7,
+      paddingVertical: 2.5,
+      borderRadius: 5,
+      alignSelf: 'flex-start',
+    },
+    visBadgeText: {
+      fontSize: 10,
+      fontWeight: '700',
+      letterSpacing: 0.4,
+    },
+    inlineStatusBadge: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    inlineStatusText: {
+      fontSize: 9.5,
+      fontWeight: '700',
+      letterSpacing: 0.3,
+    },
+    timeText: {
+      fontSize: 11,
+      fontWeight: '500',
+      color: colors.textSecondary,
+      flexShrink: 0,
+    },
+    eventHeadline: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      lineHeight: 20,
+      marginBottom: 8,
+      flexShrink: 1,
+    },
+    cardBody: {
+      marginTop: 0,
+    },
+    eventBox: {
+      backgroundColor: colors.surfaceSubtle,
+      borderRadius: 8,
+      padding: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      gap: 4,
+    },
+    eventSubHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 2,
+    },
+    eventSubTitle: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.textPrimary,
+      flexShrink: 1,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: 6,
+      marginTop: 2,
+    },
+    metaItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    metaText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      fontWeight: '500',
+    },
+    metaDivider: {
+      fontSize: 12,
+      color: colors.textMuted,
+      marginHorizontal: 1,
+    },
+    eventMembers: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: colors.primaryTeal,
+      flexShrink: 1,
+    },
+    membersRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginBottom: 3,
+    },
+    eventNotes: {
+      fontSize: 12,
+      color: colors.textMuted,
+      fontStyle: 'italic',
+      marginTop: 3,
+      lineHeight: 16,
+    },
+    eventSimpleSummary: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 18,
+      flexShrink: 1,
+    },
+    payloadSummary: {
+      fontSize: 12,
+      color: colors.textPrimary,
+      fontFamily: 'monospace',
+      backgroundColor: colors.surfaceSelected,
+      padding: 10,
+      borderRadius: 6,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cardEmptyDesc: {
+      fontSize: 13,
+      color: colors.textSecondary,
+    },
+    itemTitle: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      marginBottom: 4,
+      lineHeight: 20,
+      flexShrink: 1,
+    },
+    itemBody: {
+      fontSize: 13,
+      color: colors.textSecondary,
+      lineHeight: 18,
+      flexShrink: 1,
+    },
+    urgentBadge: {
+      backgroundColor: colors.error,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+    },
+    urgentBadgeText: {
+      color: colors.white,
+      fontSize: 10,
+      fontWeight: '700',
+    },
+    inboxCatBadge: {
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+      backgroundColor: isDark ? '#0F766E25' : colors.lightTeal,
+    },
+    inboxCatText: {
+      fontSize: 10,
+      fontWeight: '700',
+      color: isDark ? '#2DD4BF' : colors.tealDark,
+      letterSpacing: 0.3,
+    },
+    unreadIndicator: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      marginTop: 10,
+      gap: 6,
+    },
+    unreadDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.primaryTeal,
+    },
+    unreadText: {
+      fontSize: 11,
+      color: colors.primaryTeal,
+      fontWeight: '600',
+    },
+    footerLoader: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 16,
+      gap: 8,
+    },
+    loadingMoreText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    endOfListContainer: {
+      alignItems: 'center',
+      paddingVertical: 16,
+    },
+    endOfListText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    centerBox: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 32,
+    },
+    emptyScrollContainer: {
+      flexGrow: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: 32,
+    },
+    loadingText: {
+      color: colors.textSecondary,
+      marginTop: 12,
+      fontSize: 14,
+    },
+    emptyTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: colors.textPrimary,
+      marginBottom: 6,
+    },
+    emptyText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      maxWidth: 280,
+    },
+    retryButton: {
+      marginTop: 16,
+      backgroundColor: colors.primaryTeal,
+      paddingVertical: 10,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      shadowColor: colors.primaryTeal,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+    retryButtonText: {
+      color: '#FFFFFF',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    errorBanner: {
+      backgroundColor: colors.errorLight,
+      borderColor: colors.errorBorder,
+      borderWidth: 1,
+      padding: 12,
+      margin: 16,
+      marginBottom: 0,
+      borderRadius: 8,
+    },
+    errorText: {
+      color: colors.errorText,
+      fontSize: 13,
+      textAlign: 'center',
+    },
+    noticeBanner: {
+      backgroundColor: isDark ? '#0F766E33' : colors.lightTeal,
+      borderColor: isDark ? '#0F766E' : '#99F6E4',
+      borderWidth: 1,
+      padding: 12,
+      marginHorizontal: 16,
+      marginTop: 8,
+      marginBottom: 0,
+      borderRadius: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    noticeText: {
+      color: isDark ? '#2DD4BF' : colors.tealDark,
+      fontSize: 13,
+      fontWeight: '600',
+      flex: 1,
+    },
   });
 }

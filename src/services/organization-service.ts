@@ -9,6 +9,7 @@ import { hashPassword, verifyPassword } from './password-service.ts';
 import type { AuthenticatedUser } from '../middleware/auth-middleware.ts';
 import { enqueueJob } from '../queue/job-queue.ts';
 import { cacheService } from './cache-service.ts';
+import { isEmailDeliveryConfigured } from './email-service.ts';
 
 export interface OnboardBusinessInput {
   name: string;
@@ -521,6 +522,7 @@ export async function inviteOrganizationMember(
       expiresAt: row.expires_at,
       createdAt: row.created_at,
       token: process.env.NODE_ENV !== 'production' ? rawToken : undefined,
+      deliveryStatus: isEmailDeliveryConfigured() ? ('queued' as const) : ('unconfigured' as const),
     };
   });
 }

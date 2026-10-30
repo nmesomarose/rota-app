@@ -129,11 +129,11 @@ export function HamburgerDrawer({ visible, onClose, navigation, currentRoute }: 
                 accessibilityRole="button"
                 accessibilityLabel="Close menu"
               >
-                <Ionicons name="close" size={24} color={colors.textSecondary} />
+                <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
-            {/* User Account & Context Card */}
+            {/* Compact User Account & Context Card */}
             <View style={styles.profileCard}>
               <View style={styles.avatarRow}>
                 <View style={styles.avatar}>
@@ -142,7 +142,7 @@ export function HamburgerDrawer({ visible, onClose, navigation, currentRoute }: 
                   </Text>
                 </View>
                 <View style={styles.profileText}>
-                  <Text style={styles.userName} numberOfLines={2}>
+                  <Text style={styles.userName} numberOfLines={1}>
                     {user?.name || user?.email?.split('@')[0] || 'Team Member'}
                   </Text>
                   <Text style={styles.userEmail}>
@@ -151,19 +151,16 @@ export function HamburgerDrawer({ visible, onClose, navigation, currentRoute }: 
                 </View>
               </View>
 
-              {/* Active Business & Role */}
+              {/* Compact Active Business Row */}
               <View style={styles.businessContext}>
-                <View style={styles.bizHeader}>
-                  <Text style={styles.contextLabel}>ACTIVE BUSINESS</Text>
-                  <View style={styles.roleBadge}>
-                    <Text style={styles.roleText}>
-                      {(business?.role || 'MEMBER').toUpperCase()}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.businessName} numberOfLines={2}>
+                <Text style={styles.businessName} numberOfLines={1}>
                   {business?.name || 'No Business Selected'}
                 </Text>
+                <View style={styles.roleBadge}>
+                  <Text style={styles.roleText}>
+                    {(business?.role || 'MEMBER').toUpperCase()}
+                  </Text>
+                </View>
               </View>
 
               {/* Online / Offline Status Indicator */}
@@ -188,6 +185,7 @@ export function HamburgerDrawer({ visible, onClose, navigation, currentRoute }: 
                     styles.statusPillText,
                     isOnline === true ? styles.statusTextOnline : styles.statusTextOffline,
                   ]}
+                  numberOfLines={1}
                 >
                   {checkingHealth
                     ? 'Checking connection...'
@@ -197,7 +195,7 @@ export function HamburgerDrawer({ visible, onClose, navigation, currentRoute }: 
                 </Text>
                 <Ionicons
                   name="refresh-outline"
-                  size={14}
+                  size={13}
                   color={isOnline === true ? '#059669' : '#D97706'}
                 />
               </TouchableOpacity>
@@ -355,20 +353,20 @@ const createStyles = (colors: ColorTokens) =>
       shadowOpacity: 0.25,
       shadowRadius: 20,
       elevation: 10,
-      paddingTop: Platform.OS === 'ios' ? 54 : 32,
+      paddingTop: Platform.OS === 'ios' ? 48 : 20,
     },
     drawerContent: {
-      paddingHorizontal: 20,
-      paddingBottom: 40,
+      paddingHorizontal: 16,
+      paddingBottom: 24,
     },
     topBar: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 20,
+      marginBottom: 10,
     },
     brandTitle: {
-      fontSize: 22,
+      fontSize: 20,
       fontWeight: '800',
       color: colors.textPrimary,
       letterSpacing: -0.5,
@@ -378,73 +376,63 @@ const createStyles = (colors: ColorTokens) =>
     },
     profileCard: {
       backgroundColor: colors.surfaceSubtle,
-      borderRadius: 16,
-      padding: 16,
+      borderRadius: 14,
+      padding: 12,
       borderWidth: 1,
       borderColor: colors.border,
-      marginBottom: 24,
+      marginBottom: 12,
     },
     avatarRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      marginBottom: 14,
+      marginBottom: 8,
     },
     avatar: {
-      width: 44,
-      height: 44,
-      borderRadius: 22,
+      width: 38,
+      height: 38,
+      borderRadius: 19,
       backgroundColor: colors.primaryNavy,
       alignItems: 'center',
       justifyContent: 'center',
-      marginRight: 12,
+      marginRight: 10,
     },
     avatarText: {
       color: '#FFFFFF',
       fontWeight: '700',
-      fontSize: 16,
+      fontSize: 14,
     },
     profileText: {
       flex: 1,
     },
     userName: {
-      fontSize: 16,
+      fontSize: 15,
       fontWeight: '700',
       color: colors.textPrimary,
     },
     userEmail: {
       fontSize: 12,
       color: colors.textSecondary,
-      marginTop: 2,
+      marginTop: 1,
       lineHeight: 16,
       flexWrap: 'wrap',
     },
     businessContext: {
-      backgroundColor: colors.surface,
-      borderRadius: 10,
-      padding: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-      marginBottom: 10,
-    },
-    bizHeader: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 4,
-    },
-    contextLabel: {
-      fontSize: 10,
-      fontWeight: '700',
-      color: colors.textMuted,
-      letterSpacing: 0.5,
-      flex: 1,
-      marginRight: 8,
+      backgroundColor: colors.surface,
+      borderRadius: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginBottom: 6,
     },
     roleBadge: {
       backgroundColor: colors.lightTeal,
       borderColor: colors.borderFocus,
       borderWidth: 1,
-      borderRadius: 6,
+      borderRadius: 5,
       paddingHorizontal: 6,
       paddingVertical: 2,
       flexShrink: 0,
@@ -455,16 +443,18 @@ const createStyles = (colors: ColorTokens) =>
       color: colors.tealDark,
     },
     businessName: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '600',
       color: colors.textPrimary,
+      flex: 1,
+      marginRight: 8,
     },
     statusPill: {
       flexDirection: 'row',
       alignItems: 'center',
       borderRadius: 8,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
+      paddingHorizontal: 8,
+      paddingVertical: 6,
       borderWidth: 1,
       justifyContent: 'space-between',
     },
@@ -477,9 +467,9 @@ const createStyles = (colors: ColorTokens) =>
       borderColor: colors.warningBorder,
     },
     statusDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
+      width: 7,
+      height: 7,
+      borderRadius: 3.5,
       marginRight: 6,
     },
     statusDotOnline: {
@@ -489,7 +479,7 @@ const createStyles = (colors: ColorTokens) =>
       backgroundColor: colors.warning,
     },
     statusPillText: {
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: '600',
       flex: 1,
     },
@@ -500,30 +490,31 @@ const createStyles = (colors: ColorTokens) =>
       color: colors.warningText,
     },
     navSection: {
-      marginBottom: 20,
+      marginBottom: 8,
     },
     sectionHeading: {
-      fontSize: 11,
+      fontSize: 10,
       fontWeight: '700',
       color: colors.textMuted,
       letterSpacing: 0.8,
-      marginBottom: 10,
-      paddingHorizontal: 6,
+      marginBottom: 4,
+      paddingHorizontal: 4,
     },
     navItem: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 12,
+      paddingVertical: 9,
       paddingHorizontal: 10,
-      borderRadius: 10,
-      marginBottom: 4,
-      gap: 12,
+      minHeight: 44,
+      borderRadius: 8,
+      marginBottom: 2,
+      gap: 10,
     },
     navItemActive: {
       backgroundColor: colors.lightTeal,
     },
     navItemText: {
-      fontSize: 15,
+      fontSize: 14,
       fontWeight: '500',
       color: colors.textSecondary,
     },
@@ -532,19 +523,20 @@ const createStyles = (colors: ColorTokens) =>
       fontWeight: '700',
     },
     footerSection: {
-      marginTop: 20,
+      marginTop: 8,
       borderTopWidth: 1,
       borderTopColor: colors.border,
-      paddingTop: 16,
+      paddingTop: 8,
     },
     signOutButton: {
       flexDirection: 'row',
       alignItems: 'center',
-      paddingVertical: 12,
+      paddingVertical: 10,
       paddingHorizontal: 10,
-      borderRadius: 10,
+      minHeight: 44,
+      borderRadius: 8,
       backgroundColor: colors.errorLight,
-      gap: 10,
+      gap: 8,
       justifyContent: 'center',
     },
     buttonDisabled: {
@@ -552,7 +544,7 @@ const createStyles = (colors: ColorTokens) =>
     },
     signOutText: {
       color: colors.errorText,
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: '700',
     },
   });

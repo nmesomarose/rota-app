@@ -10,7 +10,7 @@ describe('Mobile Invitation Acceptance Flow Verification (FR-AUTH-007, AC-INV-01
     return fs.existsSync(candidate1) ? candidate1 : candidate2;
   };
 
-  const readSource = (relPath: string) => fs.readFileSync(getFilePath(relPath), 'utf8');
+  const readSource = (relPath: string) => fs.readFileSync(getFilePath(relPath), 'utf8').replace(/\r\n/g, '\n');
 
   describe('1. API Service Contracts (mobile/src/services/api.ts)', () => {
     it('defines api.organizations.getInvitation calling public GET endpoint', () => {

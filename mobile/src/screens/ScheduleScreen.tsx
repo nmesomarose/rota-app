@@ -435,12 +435,7 @@ export function ScheduleScreen() {
         </View>
       </View>
 
-      {isOffline && (
-        <View style={styles.offlineBanner}>
-          <Ionicons name="cloud-offline-outline" size={16} color="#92400E" style={{ marginRight: 6 }} />
-          <Text style={styles.offlineBannerText}>Offline mode active. Showing cached shifts.</Text>
-        </View>
-      )}
+
 
       {errorMessage && (
         <View style={styles.errorBanner}>

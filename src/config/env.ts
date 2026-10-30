@@ -87,10 +87,12 @@ const envSchema = z.object({
   SWEEPER_INTERVAL_MS: z.coerce.number().int().positive().default(60000),
   ASYNC_WEBHOOK_PROCESSING: z.string().default('false'),
 
-  // Transactional Email Provider (Resend)
+  // Transactional Email Providers (Resend & Mailjet)
   RESEND_API_KEY: z.string().optional(),
+  MAILJET_API_KEY: z.string().optional(),
+  MAILJET_SECRET_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default('Rota <onboarding@resend.dev>'),
-  EMAIL_PROVIDER: z.enum(['resend', 'simulated']).optional(),
+  EMAIL_PROVIDER: z.enum(['resend', 'mailjet', 'simulated']).optional(),
 
   // Push Notification Provider (Expo)
   EXPO_ACCESS_TOKEN: z.string().optional(),

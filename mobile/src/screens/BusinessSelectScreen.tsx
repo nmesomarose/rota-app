@@ -178,13 +178,17 @@ export function BusinessSelectScreen({ navigation }: Props) {
       >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Your Organizations</Text>
+          <Text style={styles.title}>
+            {memberships.length === 0 ? 'Welcome to Rota' : 'Your Organizations'}
+          </Text>
           <Text style={styles.subtitle}>
-            Select a workspace to manage schedules or create a new organization.
+            {memberships.length === 0
+              ? "Choose how you'd like to get started."
+              : 'Select a workspace to manage schedules or create a new organization.'}
           </Text>
         </View>
 
-        {errorMessage && (
+        {errorMessage && !showCreateModal && (
           <View style={styles.errorBanner}>
             <Text style={styles.errorText}>{errorMessage}</Text>
           </View>
@@ -200,8 +204,9 @@ export function BusinessSelectScreen({ navigation }: Props) {
           <ScrollView
             contentContainerStyle={styles.onboardScroll}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            {/* Signed-in Identity Card (FR-AUTH-002, Task 3) */}
+            {/* Compact Signed-in Account Indicator */}
             <View style={styles.signedInCard}>
               <View style={styles.signedInRow}>
                 <View style={styles.userInitialsCircle}>
@@ -210,97 +215,90 @@ export function BusinessSelectScreen({ navigation }: Props) {
                   </Text>
                 </View>
                 <View style={styles.signedInMeta}>
-                  <View style={styles.signedInBadge}>
+                  <View style={styles.signedInBadgeRow}>
+                    <View style={styles.statusDot} />
                     <Text style={styles.signedInBadgeText}>Signed In</Text>
                   </View>
                   <Text style={styles.signedInEmailText} numberOfLines={1}>
                     {currentUser?.email || 'Authenticated User'}
                   </Text>
                 </View>
+                <TouchableOpacity
+                  style={styles.signedInSignOutBtn}
+                  onPress={handleLogout}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Sign out"
+                >
+                  <Ionicons name="log-out-outline" size={16} color={colors.textSecondary} />
+                  <Text style={styles.signedInSignOutText}>Sign out</Text>
+                </TouchableOpacity>
               </View>
-              <Text style={styles.signedInHelpText}>
+              <Text style={styles.signedInHelpText} numberOfLines={1}>
                 Your account is active, but you are not currently a member of any workspace.
               </Text>
             </View>
 
-            {/* Team Invitation Card (Task 4) */}
-            <View style={styles.invitationCard}>
-              <View style={styles.invitationHeaderRow}>
-                <View style={styles.invitationIconCircle}>
-                  <Ionicons name="mail-unread-outline" size={24} color={colors.primaryTeal} />
+            {/* Action 1: Join a Team */}
+            <View style={styles.actionCard}>
+              <View style={styles.actionCardHeader}>
+                <View style={styles.actionIconContainer}>
+                  <Ionicons name="people" size={20} color={colors.primaryTeal} />
                 </View>
-                <View style={styles.invitationTextContainer}>
-                  <Text style={styles.invitationCardTitle}>Received an Invitation?</Text>
-                  <Text style={styles.invitationCardSubtitle}>
-                    If your employer or manager invited you to join their team, enter your invitation code to access your workspace.
+                <View style={styles.actionTitleContainer}>
+                   <Text style={styles.actionTitle}>Received an Invitation?</Text>
+                   <Text style={styles.actionDescription}>
+                    Have an invitation from your employer?
                   </Text>
                 </View>
               </View>
 
               <TouchableOpacity
-                style={styles.invitationActionButton}
+                style={styles.primaryActionButton}
                 onPress={() => navigation.navigate('AcceptInvitation', {})}
                 activeOpacity={0.85}
                 accessibilityRole="button"
                 accessibilityLabel="Enter Invitation Code"
               >
-                <Text style={styles.invitationActionButtonText}>Enter Invitation Code →</Text>
+                <Text style={styles.primaryActionButtonText}>Enter Invitation Code →</Text>
+                <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={styles.buttonIconRight} />
               </TouchableOpacity>
             </View>
 
-            {/* Divider */}
-            <View style={styles.sectionDividerRow}>
-              <View style={styles.sectionDividerLine} />
-              <Text style={styles.sectionDividerText}>OR CREATE WORKSPACE</Text>
-              <View style={styles.sectionDividerLine} />
-            </View>
-
-            {/* Business Creation Card */}
-            <View style={styles.onboardCard}>
-              <View style={styles.iconCircle}>
-                <Text style={styles.iconText}>🏢</Text>
-              </View>
-              <Text style={styles.onboardTitle}>Create Your Business</Text>
-              <Text style={styles.onboardSubtitle}>
-                Starting your own team? Set up your business now to start scheduling shifts as the Owner.
-              </Text>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Business or Organization Name</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. Apex Health, Downtown Cafe"
-                  placeholderTextColor={colors.textMuted}
-                  value={newOrgName}
-                  onChangeText={setNewOrgName}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  editable={!creating}
-                  returnKeyType="done"
-                  onSubmitEditing={handleCreateBusiness}
-                  accessibilityLabel="Business name input"
-                />
+            {/* Action 2: Create a Business */}
+            <View style={styles.actionCard}>
+              <View style={styles.actionCardHeader}>
+                <View style={[styles.actionIconContainer, styles.actionIconNavy]}>
+                  <Ionicons name="business" size={20} color={isDark ? colors.primaryNavy : '#17324D'} />
+                </View>
+                <View style={styles.actionTitleContainer}>
+                  <Text style={styles.actionTitle}>Create a Business</Text>
+                  <Text style={styles.actionDescription}>
+                    Set up your workspace and start scheduling.
+                  </Text>
+                </View>
               </View>
 
               <TouchableOpacity
-                style={[styles.createButton, creating && styles.buttonDisabled]}
-                onPress={handleCreateBusiness}
-                disabled={creating}
+                style={styles.secondaryActionButton}
+                onPress={() => {
+                  setErrorMessage(null);
+                  setNewOrgName('');
+                  setShowCreateModal(true);
+                }}
                 activeOpacity={0.85}
                 accessibilityRole="button"
-                accessibilityLabel="Create Business & Continue"
+                accessibilityLabel="Create Workspace"
               >
-                {creating ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text style={styles.createButtonText}>Create Business & Continue</Text>
-                )}
+                <Ionicons
+                  name="add-circle-outline"
+                  size={18}
+                  color={colors.primaryTeal}
+                  style={styles.buttonIconLeft}
+                />
+                <Text style={styles.secondaryActionButtonText}>Create Workspace</Text>
               </TouchableOpacity>
             </View>
-
-            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-              <Text style={styles.logoutButtonText}>Sign out to use a different account</Text>
-            </TouchableOpacity>
           </ScrollView>
         ) : (
           /* Existing Memberships List */
@@ -329,7 +327,14 @@ export function BusinessSelectScreen({ navigation }: Props) {
                         <Text style={styles.roleText}>{item.role.toUpperCase()}</Text>
                       </View>
                     </View>
-                    <Text style={styles.statusText}>Status: {item.status}</Text>
+                    <View style={styles.cardFooter}>
+                      <Text style={styles.statusText}>Status: {item.status}</Text>
+                      <Ionicons
+                        name="chevron-forward"
+                        size={18}
+                        color={colors.textMuted}
+                      />
+                    </View>
                     {isSwitching && (
                       <View style={styles.switchingRow}>
                         <ActivityIndicator size="small" color={colors.primaryTeal} />
@@ -362,15 +367,35 @@ export function BusinessSelectScreen({ navigation }: Props) {
                   <TouchableOpacity
                     style={styles.addBizButton}
                     onPress={() => {
+                      setErrorMessage(null);
                       setNewOrgName('');
                       setShowCreateModal(true);
                     }}
                     activeOpacity={0.8}
+                    accessibilityRole="button"
+                    accessibilityLabel="Add another organization"
                   >
-                    <Text style={styles.addBizButtonText}>+ Add Another Organization</Text>
+                    <Ionicons
+                      name="add-circle-outline"
+                      size={18}
+                      color={colors.primaryTeal}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text style={styles.addBizButtonText}>Add Another Organization</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity style={styles.secondaryLogout} onPress={handleLogout}>
+                  <TouchableOpacity
+                    style={styles.secondaryLogout}
+                    onPress={handleLogout}
+                    accessibilityRole="button"
+                    accessibilityLabel="Sign out"
+                  >
+                    <Ionicons
+                      name="log-out-outline"
+                      size={16}
+                      color={colors.textSecondary}
+                      style={{ marginRight: 6 }}
+                    />
                     <Text style={styles.secondaryLogoutText}>Sign out</Text>
                   </TouchableOpacity>
                 </View>
@@ -380,28 +405,55 @@ export function BusinessSelectScreen({ navigation }: Props) {
         )}
       </View>
 
-      {/* Modal for Creating Additional Organizations */}
+      {/* Modal for Creating Workspace */}
       <Modal
         visible={showCreateModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowCreateModal(false)}
+        onRequestClose={() => {
+          setShowCreateModal(false);
+          setErrorMessage(null);
+        }}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>New Organization</Text>
+              <View style={styles.modalTitleRow}>
+                <Ionicons
+                  name="business-outline"
+                  size={20}
+                  color={colors.primaryTeal}
+                  style={{ marginRight: 8 }}
+                />
+                <Text style={styles.modalTitle}>Create Workspace</Text>
+              </View>
               <TouchableOpacity
-                onPress={() => setShowCreateModal(false)}
+                onPress={() => {
+                  setShowCreateModal(false);
+                  setErrorMessage(null);
+                }}
                 style={styles.modalCloseButton}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
               >
-                <Text style={styles.modalCloseText}>✕</Text>
+                <Ionicons name="close" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
             <Text style={styles.modalSubtitle}>
-              You will be assigned the Owner role for this new organization.
+              Set up your workspace and start scheduling as the Owner.
             </Text>
+
+            {errorMessage && (
+              <View style={styles.modalErrorBanner}>
+                <Ionicons name="alert-circle-outline" size={16} color={colors.errorText} />
+                <Text style={styles.modalErrorText}>{errorMessage}</Text>
+              </View>
+            )}
 
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Organization Name</Text>
@@ -414,6 +466,9 @@ export function BusinessSelectScreen({ navigation }: Props) {
                 autoCapitalize="words"
                 autoCorrect={false}
                 editable={!creating}
+                returnKeyType="done"
+                onSubmitEditing={handleCreateBusiness}
+                accessibilityLabel="Organization name input"
               />
             </View>
 
@@ -421,15 +476,18 @@ export function BusinessSelectScreen({ navigation }: Props) {
               style={[styles.createButton, creating && styles.buttonDisabled]}
               onPress={handleCreateBusiness}
               disabled={creating}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Create Workspace"
             >
               {creating ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
-                <Text style={styles.createButtonText}>Create & Enter</Text>
+                <Text style={styles.createButtonText}>Create Workspace</Text>
               )}
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </KeyboardAvoidingView>
   );
@@ -446,21 +504,21 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     paddingHorizontal: 20,
     paddingTop: 60,
   },
-  header: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.textPrimary,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 6,
-    lineHeight: 20,
-  },
+    header: {
+      marginBottom: 16,
+    },
+    title: {
+      fontSize: 26,
+      fontWeight: '800',
+      color: colors.textPrimary,
+      letterSpacing: -0.5,
+    },
+    subtitle: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginTop: 4,
+      lineHeight: 20,
+    },
   errorBanner: {
     backgroundColor: colors.errorLight,
     borderColor: colors.errorBorder,
@@ -487,49 +545,11 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
   onboardScroll: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingBottom: 40,
-  },
-  onboardCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: isDark ? 0.3 : 0.06,
-    shadowRadius: 16,
-    elevation: 3,
-    alignItems: 'center',
-  },
-  iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: isDark ? '#0F766E33' : colors.lightTeal,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  iconText: {
-    fontSize: 30,
-  },
-  onboardTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  onboardSubtitle: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
+    paddingBottom: 24,
   },
   inputGroup: {
     width: '100%',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   label: {
     fontSize: 13,
@@ -550,9 +570,10 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
   createButton: {
     width: '100%',
     backgroundColor: colors.primaryTeal,
-    paddingVertical: 14,
+    minHeight: 48,
     borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: colors.primaryTeal,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
@@ -566,16 +587,6 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     color: colors.white,
     fontSize: 15,
     fontWeight: '600',
-  },
-  logoutButton: {
-    marginTop: 20,
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  logoutButtonText: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '500',
   },
   listWrapper: {
     flex: 1,
@@ -680,9 +691,11 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
   modalContent: {
     backgroundColor: colors.surface,
     borderRadius: 16,
-    padding: 24,
+    padding: 22,
     width: '100%',
     maxWidth: 400,
+    borderWidth: 1,
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: isDark ? 0.4 : 0.15,
@@ -695,63 +708,82 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     alignItems: 'center',
     marginBottom: 6,
   },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   modalCloseButton: {
-    padding: 4,
-  },
-  modalCloseText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    fontWeight: '600',
+    padding: 6,
   },
   modalSubtitle: {
     fontSize: 13,
     color: colors.textSecondary,
-    marginBottom: 18,
+    marginBottom: 14,
     lineHeight: 18,
   },
-  // Signed-in banner styles (Task 3)
+  modalErrorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.errorLight,
+    borderColor: colors.errorBorder,
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 14,
+    gap: 6,
+  },
+  modalErrorText: {
+    flex: 1,
+    color: colors.errorText,
+    fontSize: 12.5,
+    fontWeight: '500',
+  },
+  // Signed-in banner styles
   signedInCard: {
-    backgroundColor: isDark ? 'rgba(30, 41, 59, 0.7)' : '#F1F5F9',
+    backgroundColor: isDark ? 'rgba(30, 41, 59, 0.7)' : colors.surfaceSubtle,
     borderRadius: 14,
-    padding: 16,
+    padding: 14,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: isDark ? 'rgba(51, 65, 85, 0.6)' : '#E2E8F0',
+    borderColor: isDark ? 'rgba(51, 65, 85, 0.6)' : colors.border,
   },
   signedInRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
   },
   userInitialsCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: colors.primaryTeal,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   userInitialsText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
   },
   signedInMeta: {
     flex: 1,
   },
-  signedInBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: isDark ? 'rgba(45, 212, 191, 0.15)' : '#CCFBF1',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginBottom: 4,
+  signedInBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: isDark ? '#2DD4BF' : '#0D9488',
+    marginRight: 5,
   },
   signedInBadgeText: {
     color: isDark ? '#2DD4BF' : '#0D9488',
@@ -770,6 +802,20 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     lineHeight: 18,
   },
   // Invitation card styles (Task 4)
+  signedInSignOutBtn: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+    gap: 4,
+  },
+  signedInSignOutText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '500' as const,
+  },
   invitationCard: {
     backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : '#FFFFFF',
     borderRadius: 16,
@@ -857,6 +903,99 @@ function createStyles(colors: ColorTokens, isDark: boolean) {
     color: colors.primaryTeal,
     fontSize: 14,
     fontWeight: '600',
+  },
+  // Task 4 onboarding action-card styles
+  actionCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: isDark ? 0.2 : 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  actionCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  actionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: isDark ? 'rgba(45, 212, 191, 0.15)' : '#CCFBF1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    flexShrink: 0,
+  },
+  actionIconNavy: {
+    backgroundColor: isDark ? 'rgba(23, 50, 77, 0.5)' : '#E0EBF5',
+  },
+  actionTitleContainer: {
+    flex: 1,
+  },
+  actionTitle: {
+    fontSize: 16,
+    fontWeight: '700' as const,
+    color: colors.textPrimary,
+    marginBottom: 2,
+  },
+  actionDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  primaryActionButton: {
+    backgroundColor: colors.primaryTeal,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    flexDirection: 'row' as const,
+    shadowColor: colors.primaryTeal,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  primaryActionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700' as const,
+  },
+  buttonIconRight: {
+    marginLeft: 8,
+  },
+  buttonIconLeft: {
+    marginRight: 8,
+  },
+  secondaryActionButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    flexDirection: 'row' as const,
+    borderWidth: 1.5,
+    borderColor: colors.primaryTeal,
+  },
+  secondaryActionButtonText: {
+    color: colors.primaryTeal,
+    fontSize: 14,
+    fontWeight: '600' as const,
+  },
+  cardFooter: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginTop: 8,
   },
   });
 }
